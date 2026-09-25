@@ -8,12 +8,18 @@ Fly Points are for leaderboard ranking only. They have no monetary value and can
 
 ## What is in this repository
 
-The game is a single self contained page, `index.html`, with no build step. It runs in any modern mobile or desktop browser.
+The game is a single self contained page, `index.html`, with no build step. It runs in any modern mobile or desktop browser, on iPhone and Android, in portrait or landscape.
 
 - Eight routes: Third Mainland Bridge, Surulere, Lekki Toll Gate, Ikoyi, Ikeja, Victoria Island, CMS and Marina, and Oshodi
 - Three levels: Novice, Pro and Expert
-- Five vehicles: Danfo, Keke, Powerbike, SUV and Sports Car
+- Five vehicles: Danfo, Keke, Powerbike, SUV and Sports Car, each in seven colours
+- Sound generated in the browser, with fixes for iPhone and Android audio rules
+- Terms of Service and Privacy Policy in the menu footer
 - Personal bests are stored on the player's device for now
+
+## Backend
+
+Supabase project `ejiji`, schema `flygidi`: players, subscriptions, billing events, runs, and weekly and monthly leaderboard views. Only the game server can read or write these tables.
 
 ## Roadmap
 
