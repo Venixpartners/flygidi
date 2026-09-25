@@ -22,11 +22,11 @@
   :root[data-theme="dark"] { --bg: #000000; --ink: #FFFFFF; }
   *, *::before, *::after { box-sizing: inherit; }
   html { height: 100%; scroll-padding-top: env(safe-area-inset-top, 0px); }
-  html, body { margin: 0; background: var(--bg); color: var(--ink); overflow: hidden; }
-  body { height: 100%; font-family: "Barlow", Arial, Helvetica, sans-serif; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); overflow: hidden; overscroll-behavior: none; }
+  body { height: 100%; font-family: "Barlow", Arial, Helvetica, sans-serif; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   #wrap { position: relative; height: 100%; max-width: 480px; margin: 0 auto; overflow: hidden; touch-action: none; }
-  canvas { display: block; width: 100%; height: 100%; }
-  button { font: inherit; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  button { font: inherit; touch-action: manipulation; }
   button:focus-visible { outline: 3px solid var(--yellow); outline-offset: 3px; }
 
   .hud[hidden], .newbest[hidden], .screen[hidden], .unlockmsg[hidden] { display: none; }
@@ -40,7 +40,7 @@
   .toast { position: absolute; left: 50%; top: 36%; transform: translate(-50%, -50%); font-family: var(--cond); font-style: italic; font-weight: 800; font-size: 30px; color: #fff; text-shadow: 0 2px 0 #000; pointer-events: none; opacity: 0; transition: opacity .2s; white-space: nowrap; }
   .toast.show { opacity: 1; }
 
-  .screen { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 24px 20px 28px; background: rgba(0,0,0,.82); overflow-y: auto; touch-action: pan-y; }
+  .screen { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 24px 20px 28px; background: rgba(0,0,0,.82); overflow-y: auto; touch-action: pan-y; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
   .screen.center { justify-content: center; }
   .screen > * { flex-shrink: 0; }
   .logo { width: min(260px, 72%); height: auto; display: block; margin: 4px 0 10px; }
@@ -79,6 +79,37 @@
   .row div b { font-family: var(--cond); font-size: 26px; font-weight: 700; }
   .newbest, .unlockmsg { align-self: flex-start; display: inline-block; background: var(--green); color: #fff; font-family: var(--cond); font-weight: 700; font-size: 16px; padding: 3px 10px; border-radius: 6px; margin-bottom: 10px; }
   .unlockmsg { background: var(--yellow); color: #000; }
+  /* short screens, including phones held sideways */
+  @media (max-height: 620px) {
+    .logo { width: min(200px, 60%); margin-bottom: 6px; }
+    .tag { font-size: 22px; margin-bottom: 10px; }
+    .note { margin-bottom: 10px; }
+    .route { min-height: 54px; padding: 8px 10px; }
+    .opt { min-height: 42px; }
+    .big { font-size: 56px; }
+    .score { font-size: 32px; }
+  }
+  /* very narrow phones */
+  @media (max-width: 350px) {
+    .screen { padding-left: 14px; padding-right: 14px; }
+    .route b { font-size: 16px; }
+    .opt { font-size: 16px; }
+    .seg { gap: 6px; }
+  }
+  .swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+  .swatch { width: 40px; height: 40px; border-radius: 50%; border: 3px solid rgba(255,255,255,.35); cursor: pointer; padding: 0; }
+  .swatch[aria-pressed="true"] { border-color: #fff; box-shadow: 0 0 0 3px #000, 0 0 0 5px #fff; }
+  .legal { margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.2); }
+  .legal-links { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+  .legal .link { color: #e6e6e6; font-size: 13px; }
+  .powered { margin: 8px 0 0; color: #9a9a9a; font-size: 12px; }
+  .doc { font-size: 15px; line-height: 1.55; color: #e6e6e6; }
+  .doc h2 { font-family: var(--cond); font-weight: 700; font-size: 28px; margin: 4px 0 4px; color: #fff; }
+  .doc h3 { font-family: var(--cond); font-weight: 700; font-size: 19px; margin: 18px 0 6px; color: #fff; }
+  .doc p, .doc ul { margin: 0 0 10px; }
+  .doc ul { padding-left: 20px; }
+  .doc .updated { color: #9a9a9a; font-size: 13px; margin-bottom: 14px; }
+  .docbar { position: sticky; top: -24px; margin: -24px -20px 12px; padding: 14px 20px; background: #000; z-index: 1; }
   @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
 </style>
 </head>
@@ -125,12 +156,28 @@
     </div>
     <p class="note" id="vehNote"></p>
 
+    <p class="label" id="colorLabel">Colour</p>
+    <div class="swatches" role="group" aria-labelledby="colorLabel" id="colorList"></div>
+    <p class="note" id="colorNote"></p>
+
     <button class="btn primary" id="startBtn">START RACE</button>
     <div class="foot">
       <p class="how">Tap left or right to change lanes. Arrow keys on a computer.</p>
       <button class="soundbtn" id="soundToggle">Sound on</button>
     </div>
     <button class="link" id="testerBtn">Prototype only: unlock all routes for testing</button>
+    <footer class="legal">
+      <div class="legal-links">
+        <button class="link" data-doc="terms">Terms of Service</button>
+        <button class="link" data-doc="privacy">Privacy Policy</button>
+      </div>
+      <p class="powered">Powered by Venix Partners Limited</p>
+    </footer>
+  </section>
+
+  <section class="screen" id="doc" hidden>
+    <div class="docbar"><button class="btn ghost" id="docClose" style="margin-top:0">BACK TO MENU</button></div>
+    <article class="doc" id="docBody"></article>
   </section>
 
   <section class="screen center" id="paused" hidden>
@@ -206,9 +253,20 @@
     sportcar:  { label: 'Sports Car', note: 'Runs 10% faster and earns 10% more distance points. Sits low, so potholes cost double.', w: 0.56, h: 1.05, steer: 16, pothole: 'double', speed: 1.1, score: 1.1 }
   };
 
+  const COLORS = {
+    yellow: { label: 'Danfo Yellow', hex: '#FAC206' },
+    red:    { label: 'Racing Red', hex: '#E0322B' },
+    orange: { label: 'Sunset Orange', hex: '#F28C28' },
+    green:  { label: 'Naija Green', hex: '#1FA463' },
+    blue:   { label: 'Lagoon Blue', hex: '#2F7FD1' },
+    purple: { label: 'Royal Purple', hex: '#8E44AD' },
+    white:  { label: 'Pearl White', hex: '#F2F2F2' }
+  };
   let route = store.get('flygidi_route', 'tmb'); if (!ROUTES[route]) route = 'tmb';
   let level = store.get('flygidi_level', 'pro'); if (!LEVELS[level]) level = 'pro';
   let vehicle = store.get('flygidi_vehicle', 'danfo'); if (!VEHICLES[vehicle]) vehicle = 'danfo';
+  let color = store.get('flygidi_color', 'yellow'); if (!COLORS[color]) color = 'yellow';
+  const playerHex = () => COLORS[color].hex;
   let soundOn = store.get('flygidi_sound', true);
   let testerUnlock = store.get('flygidi_tester_unlock', false);
 
@@ -222,17 +280,48 @@
   let best = getBest(route, level);
 
   // ---------- sound (synthesised, no files to download) ----------
+  // Phones only start audio after a tap, and iPhones silence web audio when the ring switch is off
+  // unless the page also plays through the media channel. Both are handled in unlock().
+  const IS_IOS = /iP(hone|od|ad)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const Sound = (() => {
-    let ac = null, master = null, eng = null, engGain = null, engFilter = null;
-    function init() {
-      if (ac) return;
-      try {
-        ac = new (window.AudioContext || window.webkitAudioContext)();
-        master = ac.createGain(); master.gain.value = soundOn ? 0.8 : 0; master.connect(ac.destination);
-      } catch (e) { ac = null; }
+    let ac = null, master = null, eng = null, eng2 = null, engGain = null, engFilter = null, silentEl = null;
+    function silentWavUrl() {
+      const rate = 8000, n = rate / 2, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+      const w = (o, str) => { for (let i = 0; i < str.length; i++) v.setUint8(o + i, str.charCodeAt(i)); };
+      w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+      return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
     }
+    function unlock() {
+      if (!soundOn) return;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!ac) {
+        try { ac = new AC(); } catch (e) { ac = null; return; }
+        const comp = ac.createDynamicsCompressor();
+        master = ac.createGain(); master.gain.value = 1;
+        master.connect(comp); comp.connect(ac.destination);
+        // one silent sample played inside the tap starts audio on older iPhones
+        try { const b = ac.createBuffer(1, 1, 22050), src = ac.createBufferSource(); src.buffer = b; src.connect(ac.destination); src.start(0); } catch (e) {}
+      }
+      if (ac.state !== 'running') { const pr = ac.resume(); if (pr && pr.catch) pr.catch(() => {}); }
+      // iPhone ring switch: newer iOS lets the page ask for media playback directly
+      try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+      // older iOS: a silent looping media track puts the page on the media channel
+      if (IS_IOS && !silentEl) {
+        silentEl = document.createElement('audio');
+        silentEl.setAttribute('playsinline', ''); silentEl.setAttribute('x-webkit-airplay', 'deny');
+        silentEl.loop = true; silentEl.src = silentWavUrl();
+      }
+      if (silentEl && silentEl.paused) { const pr = silentEl.play(); if (pr && pr.catch) pr.catch(() => {}); }
+    }
+    function suspend() {
+      if (ac && ac.state === 'running') ac.suspend().catch(() => {});
+      if (silentEl && !silentEl.paused) silentEl.pause();
+    }
+    const on = () => ac && master && soundOn;
     function tone(freq, dur, type = 'sine', vol = 0.1, slideTo = null, delay = 0) {
-      if (!ac) return;
+      if (!on()) return;
       const t0 = ac.currentTime + delay;
       const o = ac.createOscillator(), g = ac.createGain();
       o.type = type; o.frequency.setValueAtTime(freq, t0);
@@ -241,59 +330,73 @@
       o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + dur + 0.02);
     }
     function noise(dur, vol = 0.2, freq = 1200, type = 'lowpass') {
-      if (!ac) return;
-      const len = Math.floor(ac.sampleRate * dur);
+      if (!on()) return;
+      const len = Math.max(1, Math.floor(ac.sampleRate * dur));
       const buf = ac.createBuffer(1, len, ac.sampleRate); const d = buf.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
-      const s = ac.createBufferSource(); s.buffer = buf;
+      const src = ac.createBufferSource(); src.buffer = buf;
       const f = ac.createBiquadFilter(); f.type = type; f.frequency.value = freq;
       const g = ac.createGain(); g.gain.value = vol;
-      s.connect(f); f.connect(g); g.connect(master); s.start();
+      src.connect(f); f.connect(g); g.connect(master); src.start();
     }
     return {
-      init,
-      resume() { if (ac && ac.state === 'suspended') ac.resume(); },
-      setOn(on) { if (master) master.gain.setTargetAtTime(on ? 0.8 : 0, ac.currentTime, 0.05); },
-      engineStart() {
-        if (!ac || eng) return;
-        eng = ac.createOscillator(); eng.type = 'sawtooth'; eng.frequency.value = 55;
-        engFilter = ac.createBiquadFilter(); engFilter.type = 'lowpass'; engFilter.frequency.value = 380;
-        engGain = ac.createGain(); engGain.gain.value = 0;
-        eng.connect(engFilter); engFilter.connect(engGain); engGain.connect(master); eng.start();
-        engGain.gain.setTargetAtTime(0.05, ac.currentTime, 0.2);
+      unlock, suspend,
+      setOn(v) {
+        if (v) { unlock(); if (master) master.gain.setTargetAtTime(1, ac.currentTime, 0.05); }
+        else { if (master) master.gain.setTargetAtTime(0, ac.currentTime, 0.05); if (silentEl && !silentEl.paused) silentEl.pause(); }
       },
-      engineSet(speed) { if (eng) { eng.frequency.setTargetAtTime(45 + speed * 0.07, ac.currentTime, 0.1); engFilter.frequency.setTargetAtTime(300 + speed * 0.5, ac.currentTime, 0.1); } },
+      // phone speakers cannot play very low notes, so the engine sits higher and carries a second harmonic
+      engineStart() {
+        if (!on() || eng) return;
+        eng = ac.createOscillator(); eng.type = 'sawtooth'; eng.frequency.value = 110;
+        eng2 = ac.createOscillator(); eng2.type = 'square'; eng2.frequency.value = 220;
+        const g2 = ac.createGain(); g2.gain.value = 0.35;
+        engFilter = ac.createBiquadFilter(); engFilter.type = 'lowpass'; engFilter.frequency.value = 900;
+        engGain = ac.createGain(); engGain.gain.value = 0;
+        eng.connect(engFilter); eng2.connect(g2); g2.connect(engFilter); engFilter.connect(engGain); engGain.connect(master);
+        eng.start(); eng2.start();
+        engGain.gain.setTargetAtTime(0.07, ac.currentTime, 0.2);
+      },
+      engineSet(speed) {
+        if (!eng) return;
+        const f = 70 + speed * 0.12;
+        eng.frequency.setTargetAtTime(f, ac.currentTime, 0.1); eng2.frequency.setTargetAtTime(f * 2, ac.currentTime, 0.1);
+        engFilter.frequency.setTargetAtTime(700 + speed * 0.8, ac.currentTime, 0.1);
+      },
       engineStop() {
         if (!eng) return;
-        const e = eng, g = engGain; g.gain.setTargetAtTime(0, ac.currentTime, 0.08);
-        setTimeout(() => { try { e.stop(); } catch (x) {} }, 400);
-        eng = null;
+        const a = eng, b = eng2; engGain.gain.setTargetAtTime(0, ac.currentTime, 0.08);
+        setTimeout(() => { try { a.stop(); b.stop(); } catch (x) {} }, 400);
+        eng = null; eng2 = null;
       },
-      horn() { tone(415, 0.22, 'square', 0.05); tone(523, 0.22, 'square', 0.04); tone(415, 0.28, 'square', 0.05, null, 0.28); tone(523, 0.28, 'square', 0.04, null, 0.28); },
-      swoosh() { noise(0.12, 0.10, 2500, 'highpass'); },
-      pass() { tone(880, 0.05, 'triangle', 0.025); },
-      streak() { [660, 880, 1175].forEach((f, i) => tone(f, 0.1, 'triangle', 0.06, null, i * 0.07)); },
-      pothole() { tone(90, 0.2, 'sine', 0.3, 40); noise(0.12, 0.12, 400); },
-      crash() { noise(0.6, 0.45, 900); tone(160, 0.5, 'sawtooth', 0.12, 40); },
-      toll() { tone(988, 0.08, 'sine', 0.06); tone(1319, 0.14, 'sine', 0.06, null, 0.08); },
-      siren() { for (let i = 0; i < 4; i++) { tone(650, 0.2, 'square', 0.035, 950, i * 0.4); tone(950, 0.2, 'square', 0.035, 650, i * 0.4 + 0.2); } },
-      plane() { noise(1.6, 0.08, 300); },
-      rain(dur) { noise(dur, 0.07, 1800); },
-      unlock() { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.16, 'triangle', 0.07, null, i * 0.1)); }
+      horn() { tone(415, 0.22, 'square', 0.09); tone(523, 0.22, 'square', 0.07); tone(415, 0.28, 'square', 0.09, null, 0.28); tone(523, 0.28, 'square', 0.07, null, 0.28); },
+      swoosh() { noise(0.12, 0.2, 2500, 'highpass'); },
+      pass() { tone(880, 0.06, 'triangle', 0.05); },
+      streak() { [660, 880, 1175].forEach((f, i) => tone(f, 0.1, 'triangle', 0.1, null, i * 0.07)); },
+      pothole() { tone(180, 0.2, 'sine', 0.35, 70); noise(0.14, 0.25, 700); },
+      crash() { noise(0.6, 0.6, 1200); tone(220, 0.5, 'sawtooth', 0.15, 60); },
+      toll() { tone(988, 0.08, 'sine', 0.1); tone(1319, 0.14, 'sine', 0.1, null, 0.08); },
+      siren() { for (let i = 0; i < 4; i++) { tone(650, 0.2, 'square', 0.06, 950, i * 0.4); tone(950, 0.2, 'square', 0.06, 650, i * 0.4 + 0.2); } },
+      plane() { noise(1.6, 0.14, 600); },
+      rain(dur) { noise(dur, 0.1, 2200); },
+      unlockRoute() { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.16, 'triangle', 0.1, null, i * 0.1)); }
     };
   })();
+  // any tap, click or key press anywhere can unlock audio, which iOS and Android both require
+  ['touchend', 'pointerup', 'mouseup', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, () => Sound.unlock(), { capture: true, passive: true }));
 
   // ---------- sizing ----------
-  let W = 0, H = 0, DPR = 1;
+  let W = 0, H = 0, DPR = 1, lowQuality = false, perfT = 0, perfN = 0;
   const LANES = 4;
   const road = { x: 0, w: 0, lane: 0 };
   function resize() {
     const r = wrap.getBoundingClientRect();
-    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    DPR = lowQuality ? 1 : Math.min(window.devicePixelRatio || 1, 2);
     W = r.width; H = r.height;
     canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    road.w = Math.min(W * 0.66, 320);
+    // sideways and short screens get a narrower road so the traffic ahead stays visible
+    road.w = Math.min(W * 0.66, 320, Math.max(200, H * 0.62));
     road.x = (W - road.w) / 2;
     road.lane = road.w / LANES;
     if (player) { player.x = laneX(player.lane); player.tx = player.x; sizeActors(); }
@@ -495,14 +598,25 @@
     else if ((e.key === 'Escape' || e.key === 'p') && (state === 'play' || state === 'pause')) togglePause();
   });
   let touchStart = null;
-  canvas.addEventListener('pointerdown', (e) => { touchStart = { x: e.clientX }; });
-  canvas.addEventListener('pointerup', (e) => {
+  function pressStart(x) { touchStart = { x }; }
+  function pressEnd(x) {
     if (!touchStart) return;
-    const dx = e.clientX - touchStart.x;
+    const dx = x - touchStart.x;
     if (Math.abs(dx) > 30) move(dx > 0 ? 1 : -1);
-    else { const r = canvas.getBoundingClientRect(); move(e.clientX - r.left < r.width / 2 ? -1 : 1); }
+    else { const r = canvas.getBoundingClientRect(); move(x - r.left < r.width / 2 ? -1 : 1); }
     touchStart = null;
-  });
+  }
+  if (window.PointerEvent) {
+    canvas.addEventListener('pointerdown', (e) => pressStart(e.clientX));
+    canvas.addEventListener('pointerup', (e) => pressEnd(e.clientX));
+    canvas.addEventListener('pointercancel', () => { touchStart = null; });
+  } else {
+    // older phones without pointer events
+    canvas.addEventListener('touchstart', (e) => pressStart(e.changedTouches[0].clientX), { passive: true });
+    canvas.addEventListener('touchend', (e) => pressEnd(e.changedTouches[0].clientX), { passive: true });
+    canvas.addEventListener('mousedown', (e) => pressStart(e.clientX));
+    canvas.addEventListener('mouseup', (e) => pressEnd(e.clientX));
+  }
 
   // ---------- menus ----------
   function renderMenu() {
@@ -526,6 +640,18 @@
     $('levelNote').textContent = LEVELS[level].note + (lb ? ' Your best here: ' + fmt(lb) + '.' : '');
     document.querySelectorAll('[data-veh]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.veh === vehicle)));
     $('vehNote').textContent = VEHICLES[vehicle].note;
+    const cl = $('colorList');
+    if (!cl.children.length) {
+      for (const id in COLORS) {
+        const b = document.createElement('button');
+        b.className = 'swatch'; b.dataset.color = id; b.style.background = COLORS[id].hex;
+        b.setAttribute('aria-label', COLORS[id].label);
+        b.onclick = () => { color = id; store.set('flygidi_color', id); renderMenu(); };
+        cl.appendChild(b);
+      }
+    }
+    cl.querySelectorAll('.swatch').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.color === color)));
+    $('colorNote').textContent = COLORS[color].label;
     $('startBtn').disabled = !open;
     $('startBtn').textContent = open ? 'START RACE' : 'ROUTE LOCKED';
     $('soundToggle').textContent = soundOn ? 'Sound on' : 'Sound off';
@@ -540,18 +666,18 @@
   $('muteBtn').onclick = toggleSound;
   $('testerBtn').onclick = () => { testerUnlock = true; store.set('flygidi_tester_unlock', true); renderMenu(); };
 
-  const show = (id) => { ['start', 'paused', 'over'].forEach(s => $(s).hidden = s !== id); $('hud').hidden = !(id === null || id === 'paused'); };
+  const show = (id) => { ['start', 'paused', 'over', 'doc'].forEach(s => $(s).hidden = s !== id); $('hud').hidden = !(id === null || id === 'paused'); };
   let unlockedBefore = [];
   function startGame() {
     if (!isUnlocked(route)) return;
-    Sound.init(); Sound.resume();
+    Sound.unlock();
     unlockedBefore = ROUTE_ORDER.filter(isUnlocked);
     reset(); state = 'play'; show(null); last = performance.now();
     Sound.horn(); Sound.engineStart();
   }
   function togglePause() {
     if (state === 'play') { state = 'pause'; show('paused'); Sound.engineStop(); }
-    else if (state === 'pause') { state = 'play'; show(null); last = performance.now(); Sound.resume(); Sound.engineStart(); }
+    else if (state === 'pause') { state = 'play'; show(null); last = performance.now(); Sound.unlock(); Sound.engineStart(); }
   }
   $('startBtn').onclick = startGame;
   $('againBtn').onclick = startGame;
@@ -559,7 +685,42 @@
   $('resumeBtn').onclick = togglePause;
   $('quitBtn').onclick = () => { state = 'play'; crash(null, true); };
   $('menuBtn').onclick = () => { state = 'menu'; reset(); renderMenu(); show('start'); $('start').scrollTop = 0; };
-  document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play') togglePause(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { if (state === 'play') togglePause(); Sound.suspend(); }
+  });
+
+
+  // ---------- policies ----------
+  const CONTACT = '<p>Venix Partners Limited, 10th Floor, Standard Chartered Building, 142 Ahmadu Bello Way, Victoria Island, Lagos.<br>Email: hello@venixpartners.com<br>Phone: +234 802 593 4298<br>SMS: send HELP FLYGIDI to 7996</p>';
+  const DOCS = {
+    terms: '<h2>Terms of Service</h2><p class="updated">Last updated 25 September 2026</p>' +
+      '<h3>1. About FlyGidi</h3><p>FlyGidi Games is a racing game provided by Venix Partners Limited, a value added service provider licensed by the Nigerian Communications Commission (licence VAS/SCN/019/23). The service runs on shortcode 7996. By subscribing or playing, you agree to these terms.</p>' +
+      '<h3>2. Who can subscribe</h3><p>FlyGidi is for people aged 18 and above. By subscribing you confirm that you are at least 18 and that you own or are allowed to use the phone number you subscribe with.</p>' +
+      '<h3>3. Subscription and charges</h3><ul><li>New subscribers get one free day of access, once per phone number, with no automatic charge.</li><li>Paid plans: Daily at N100, Weekly at N500 and Monthly at N1,200, deducted from your airtime.</li><li>No charge is made until you confirm the plan, price and renewal period in a consent request from your network.</li><li>Paid plans renew automatically at the end of each period until you cancel. Weekly and monthly subscribers get a reminder before each renewal.</li><li>If your airtime balance is too low at renewal, access pauses until a renewal succeeds.</li></ul>' +
+      '<h3>4. Cancelling</h3><p>Send STOP FLYGIDI or STOP to 7996 at any time. You will receive a confirmation, no further charges will be made, and you can keep playing until the end of the period you have already paid for. Charges for a period that has already started are not refunded, except where the law requires it or where you were charged in error.</p>' +
+      '<h3>5. Fly Points and leaderboards</h3><p>Fly Points measure how well you drive and are used only to rank players. They have no monetary value and cannot be bought, sold, redeemed, exchanged or transferred for cash, airtime, data, goods or any other reward. FlyGidi offers no prizes, draws or winnings of any kind. Leaderboards are for recognition only.</p>' +
+      '<h3>6. Fair play</h3><p>You agree not to cheat, tamper with the game, use automated tools or share access in a way that affects other players. We check scores and may remove any score, reset a leaderboard entry or suspend access where we find cheating or misuse.</p>' +
+      '<h3>7. The service</h3><p>We may add, change or retire routes, vehicles and features. We aim to keep FlyGidi available at all times, but access may be interrupted by maintenance, network problems or events outside our control.</p>' +
+      '<h3>8. Liability</h3><p>FlyGidi is provided for entertainment. To the extent the law allows, Venix Partners Limited is not liable for indirect losses arising from use of the service. Nothing in these terms limits any right you have under Nigerian consumer protection law.</p>' +
+      '<h3>9. Changes to these terms</h3><p>We may update these terms. If a change affects your charges, we will tell you by SMS before it takes effect, and you can cancel at any time.</p>' +
+      '<h3>10. Governing law</h3><p>These terms are governed by the laws of the Federal Republic of Nigeria.</p>' +
+      '<h3>11. Contact us</h3>' + CONTACT,
+    privacy: '<h2>Privacy Policy</h2><p class="updated">Last updated 25 September 2026</p>' +
+      '<h3>1. Who we are</h3><p>Venix Partners Limited provides FlyGidi Games and is responsible for your personal data under the Nigeria Data Protection Act 2023.</p>' +
+      '<h3>2. What we collect</h3><ul><li>Your phone number and the name you give us.</li><li>Subscription details from your mobile network, such as your plan, renewals and cancellations.</li><li>Game data, such as scores, routes, levels, vehicles and play times.</li><li>Basic device information, such as the browser and screen size, to make the game work well on your phone.</li><li>Messages you send to our support team.</li></ul>' +
+      '<h3>3. How we use it</h3><ul><li>To give you access to the game and manage your subscription.</li><li>To send service messages, such as confirmations and renewal reminders.</li><li>To run leaderboards and check scores for fair play.</li><li>To answer support requests and improve the game.</li><li>To meet our obligations to the Nigerian Communications Commission and other authorities.</li></ul>' +
+      '<h3>4. Our legal basis</h3><p>We process your data to provide the service you subscribed to, with your consent where required, to meet legal and regulatory obligations, and for our legitimate interest in keeping the game fair and secure.</p>' +
+      '<h3>5. Who we share it with</h3><p>We share only what is needed with mobile networks and our aggregator partner for billing and SMS, with trusted hosting providers that store our data securely, and with regulators or law enforcement when the law requires it. We never sell your personal data.</p>' +
+      '<h3>6. Leaderboards</h3><p>Leaderboards show the name you choose. Your phone number is never shown to other players.</p>' +
+      '<h3>7. How long we keep it</h3><p>We keep your data while you are subscribed and for as long afterwards as the law or regulators require. Game data that is no longer needed is deleted or anonymised.</p>' +
+      '<h3>8. Security</h3><p>We protect your data with access controls and encryption in transit, and we review who can see it.</p>' +
+      '<h3>9. Your rights</h3><p>You can ask to see the data we hold about you, correct it, delete it, withdraw your consent or object to how we use it. Contact us using the details below. If you are not satisfied with our response, you can complain to the Nigeria Data Protection Commission.</p>' +
+      '<h3>10. Age limit</h3><p>FlyGidi is not intended for anyone under 18, and we do not knowingly collect data from them.</p>' +
+      '<h3>11. Contact us</h3>' + CONTACT
+  };
+  function openDoc(key) { $('docBody').innerHTML = DOCS[key]; show('doc'); $('doc').scrollTop = 0; }
+  document.querySelectorAll('[data-doc]').forEach(b => b.addEventListener('click', () => openDoc(b.dataset.doc)));
+  $('docClose').onclick = () => { show('start'); };
 
   const CRASH_LINES = {
     car: ['Oga, face your front o.', 'Small space no be road.'],
@@ -587,9 +748,9 @@
     if (isBest) { best = s; store.set(bestKey(route, level), best); }
     $('newBest').hidden = !isBest || s === 0;
     const nowOpen = ROUTE_ORDER.filter(isUnlocked).filter(r => !unlockedBefore.includes(r));
-    if (nowOpen.length) { $('unlockMsg').textContent = 'New route unlocked: ' + ROUTES[nowOpen[0]].name; $('unlockMsg').hidden = false; setTimeout(() => Sound.unlock(), 500); }
+    if (nowOpen.length) { $('unlockMsg').textContent = 'New route unlocked: ' + ROUTES[nowOpen[0]].name; $('unlockMsg').hidden = false; setTimeout(() => Sound.unlockRoute(), 500); }
     else $('unlockMsg').hidden = true;
-    $('overMeta').textContent = ROUTES[route].name + ', ' + LEVELS[level].label + ', ' + VEHICLES[vehicle].label;
+    $('overMeta').textContent = ROUTES[route].name + ', ' + LEVELS[level].label + ', ' + COLORS[color].label + ' ' + VEHICLES[vehicle].label;
     $('finalScore').textContent = fmt(s);
     $('finalBestLabel').textContent = LEVELS[level].label + ' best';
     $('finalBest').textContent = fmt(best);
@@ -622,7 +783,7 @@
     score += dy * 0.02 * mult * (rainT > 0 ? 2 : 1) * (VH.score || 1);
 
     const steer = VEHICLES[vehicle].steer * (rainT > 0 ? 0.6 : 1);
-    player.y = H - player.h - Math.max(70, H * 0.12);
+    player.y = H - player.h - Math.min(90, Math.max(40, H * 0.12));
     player.x += (player.tx - player.x) * Math.min(1, dt * steer);
     player.tilt *= Math.pow(0.02, dt);
     if (player.wobble > 0) player.wobble = Math.max(0, player.wobble - dt);
@@ -907,20 +1068,20 @@
     ctx.fillStyle = '#000'; rr(x - w / 2 + 5, y + h * 0.16, w - 10, h * 0.14, 3); ctx.fill();
     if (isPlayer) { ctx.fillStyle = '#FFF4C2'; ctx.beginPath(); ctx.arc(x, y + 4, 2.5, 0, Math.PI * 2); ctx.fill(); }
   }
-  function drawPowerbike(x, y, w, h) {
+  function drawPowerbike(x, y, w, h, body) {
     ctx.fillStyle = 'rgba(0,0,0,0.3)'; rr(x - w / 2 + 3, y + 5, w, h, 5); ctx.fill();
     ctx.fillStyle = '#111'; rr(x - w * 0.16, y - 2, w * 0.32, h * 0.22, 3); ctx.fill(); rr(x - w * 0.18, y + h * 0.78, w * 0.36, h * 0.24, 3); ctx.fill();
-    ctx.fillStyle = C.yellow; ctx.beginPath(); ctx.moveTo(x, y + h * 0.05); ctx.quadraticCurveTo(x + w / 2, y + h * 0.3, x + w * 0.42, y + h * 0.72); ctx.lineTo(x - w * 0.42, y + h * 0.72); ctx.quadraticCurveTo(x - w / 2, y + h * 0.3, x, y + h * 0.05); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = body; ctx.beginPath(); ctx.moveTo(x, y + h * 0.05); ctx.quadraticCurveTo(x + w / 2, y + h * 0.3, x + w * 0.42, y + h * 0.72); ctx.lineTo(x - w * 0.42, y + h * 0.72); ctx.quadraticCurveTo(x - w / 2, y + h * 0.3, x, y + h * 0.05); ctx.closePath(); ctx.fill();
     ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.fillStyle = '#9A9EA5'; ctx.fillRect(x - w * 0.62, y + h * 0.26, w * 1.24, 3);
     ctx.fillStyle = '#1a1a1a'; ctx.beginPath(); ctx.ellipse(x, y + h * 0.5, w * 0.34, h * 0.17, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x, y + h * 0.4, w * 0.3, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = C.yellow; ctx.fillRect(x - 1.5, y + h * 0.4 - w * 0.3, 3, w * 0.6);
+    ctx.fillStyle = body; ctx.fillRect(x - 1.5, y + h * 0.4 - w * 0.3, 3, w * 0.6);
     ctx.fillStyle = '#FFF4C2'; ctx.beginPath(); ctx.arc(x, y + 2, 2.5, 0, Math.PI * 2); ctx.fill();
   }
-  function drawSUV(x, y, w, h) {
+  function drawSUV(x, y, w, h, body) {
     shadow(x - w / 2, y, w, h, 6);
-    ctx.fillStyle = C.yellow; rr(x - w / 2, y, w, h, 6); ctx.fill();
+    ctx.fillStyle = body; rr(x - w / 2, y, w, h, 6); ctx.fill();
     ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.stroke();
     ctx.fillStyle = '#111'; rr(x - w / 2 + 4, y + h * 0.14, w - 8, h * 0.16, 3); ctx.fill();
     ctx.fillStyle = 'rgba(0,0,0,0.2)'; rr(x - w / 2 + 6, y + h * 0.34, w - 12, h * 0.44, 3); ctx.fill();
@@ -930,9 +1091,9 @@
     ctx.fillRect(x - w / 2 - 4, y + h * 0.18, 4, 5); ctx.fillRect(x + w / 2, y + h * 0.18, 4, 5);
     ctx.fillStyle = '#FFF4C2'; ctx.fillRect(x - w / 2 + 3, y + 1, 7, 3); ctx.fillRect(x + w / 2 - 10, y + 1, 7, 3);
   }
-  function drawSportcar(x, y, w, h) {
+  function drawSportcar(x, y, w, h, body) {
     shadow(x - w / 2, y, w, h, 12);
-    ctx.fillStyle = C.yellow;
+    ctx.fillStyle = body;
     ctx.beginPath(); ctx.moveTo(x - w * 0.3, y); ctx.lineTo(x + w * 0.3, y); ctx.quadraticCurveTo(x + w / 2, y + h * 0.05, x + w / 2, y + h * 0.3); ctx.lineTo(x + w / 2, y + h - 6); ctx.quadraticCurveTo(x + w / 2, y + h, x + w / 2 - 6, y + h); ctx.lineTo(x - w / 2 + 6, y + h); ctx.quadraticCurveTo(x - w / 2, y + h, x - w / 2, y + h - 6); ctx.lineTo(x - w / 2, y + h * 0.3); ctx.quadraticCurveTo(x - w / 2, y + h * 0.05, x - w * 0.3, y); ctx.closePath(); ctx.fill();
     ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.stroke();
     ctx.fillStyle = '#111'; ctx.beginPath(); ctx.moveTo(x - w * 0.34, y + h * 0.42); ctx.lineTo(x - w * 0.26, y + h * 0.3); ctx.lineTo(x + w * 0.26, y + h * 0.3); ctx.lineTo(x + w * 0.34, y + h * 0.42); ctx.closePath(); ctx.fill();
@@ -1120,11 +1281,17 @@
     ctx.save();
     const wob = player.wobble > 0 ? Math.sin(player.wobble * 40) * 0.08 : 0;
     ctx.translate(player.x, player.y + player.h / 2); ctx.rotate(player.tilt + wob); ctx.translate(-player.x, -(player.y + player.h / 2));
-    if (vehicle === 'keke') drawKeke(player.x, player.y, player.w, player.h, C.yellow, '#000', true);
-    else if (vehicle === 'powerbike') drawPowerbike(player.x, player.y, player.w, player.h);
-    else if (vehicle === 'suv') drawSUV(player.x, player.y, player.w, player.h);
-    else if (vehicle === 'sportcar') drawSportcar(player.x, player.y, player.w, player.h);
-    else drawDanfo(player.x, player.y, player.w, player.h, C.yellow, true);
+    // a soft yellow glow under the player keeps it easy to spot whatever colour is chosen
+    const gx = player.x, gy = player.y + player.h / 2, gr = Math.max(player.w, player.h) * 0.75;
+    const glow = ctx.createRadialGradient(gx, gy, gr * 0.3, gx, gy, gr);
+    glow.addColorStop(0, 'rgba(250,194,6,0.35)'); glow.addColorStop(1, 'rgba(250,194,6,0)');
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.ellipse(gx, gy, player.w * 0.95, player.h * 0.75, 0, 0, Math.PI * 2); ctx.fill();
+    const body = playerHex();
+    if (vehicle === 'keke') drawKeke(player.x, player.y, player.w, player.h, body, '#000', true);
+    else if (vehicle === 'powerbike') drawPowerbike(player.x, player.y, player.w, player.h, body);
+    else if (vehicle === 'suv') drawSUV(player.x, player.y, player.w, player.h, body);
+    else if (vehicle === 'sportcar') drawSportcar(player.x, player.y, player.w, player.h, body);
+    else drawDanfo(player.x, player.y, player.w, player.h, body, true);
     ctx.restore();
   }
 
@@ -1199,14 +1366,20 @@
   let last = performance.now();
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
-    if (state === 'play') update(dt);
-    else if (state === 'menu') { updateScene(140 * dt); player.y = H - player.h - Math.max(70, H * 0.12); }
+    if (state === 'play') {
+      update(dt);
+      // slow phones drop to standard resolution so the game stays smooth
+      if (!lowQuality) { perfT += dt; perfN++; if (perfN >= 120) { if (perfT / perfN > 0.026 && DPR > 1) { lowQuality = true; resize(); } perfT = 0; perfN = 0; } }
+    }
+    else if (state === 'menu') { updateScene(140 * dt); player.y = H - player.h - Math.min(90, Math.max(40, H * 0.12)); }
     else if (shake > 0) shake = Math.max(0, shake - dt * 40);
     draw();
     requestAnimationFrame(frame);
   }
 
   window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', () => setTimeout(resize, 250));
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
   resize(); reset(); resize();
   renderMenu();
   show('start');
