@@ -167,7 +167,20 @@
   .overstreak { margin: 0 0 14px; color: #e6e6e6; font-size: 14px; }
   @media (max-height: 620px) { .bignum { font-size: 72px; } .stats div b { font-size: 20px; } }
   /* account, leaderboards and profile */
-  .acct { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 8px; }
+  .acct { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 0 0 8px; }
+  .acct .opt { font-size: 16px; }
+  .gpreview { display: block; width: 100%; max-width: 320px; height: auto; margin: 0 auto 6px; }
+  .gnote { text-align: center; color: #cfcfcf; font-size: 13px; margin: 0 0 12px; min-height: 1.4em; }
+  .glist { list-style: none; margin: 4px 0 14px; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .glist button { width: 100%; text-align: left; border-radius: 10px; border: 2px solid #fff; background: transparent; color: #fff; padding: 8px 10px; min-height: 58px; cursor: pointer; }
+  .glist button b { display: block; font-family: var(--cond); font-weight: 700; font-size: 16px; line-height: 1.1; }
+  .glist button small { display: block; font-size: 12px; color: #bdbdbd; margin-top: 2px; }
+  .glist button[aria-pressed="true"] { background: #fff; color: #000; }
+  .glist button[aria-pressed="true"] small { color: #444; }
+  .glist button.locked { border-style: dashed; border-color: rgba(255,255,255,.35); color: #8a8a8a; cursor: default; }
+  .glowpick { display: flex; gap: 8px; margin: -6px 0 14px; }
+  .glowpick button { width: 36px; height: 36px; border-radius: 50%; border: 3px solid rgba(255,255,255,.35); cursor: pointer; padding: 0; }
+  .glowpick button[aria-pressed="true"] { border-color: #fff; }
   .acctnote { margin: 0 0 16px; color: #cfcfcf; font-size: 13px; }
   .field { display: block; margin: 0 0 14px; }
   .field span { display: block; font-family: var(--cond); font-weight: 700; font-size: 17px; margin: 0 0 6px; }
@@ -240,6 +253,7 @@
 
     <div class="acct">
       <button class="opt" id="boardBtn">Leaderboard</button>
+      <button class="opt" id="garageBtn">Garage</button>
       <button class="opt" id="acctBtn">Sign in</button>
     </div>
     <p class="acctnote" id="acctNote">Sign in with your username to post scores and climb the boards.</p>
@@ -354,6 +368,17 @@
     <button class="btn ghost" id="pfOut">SIGN OUT</button>
   </section>
 
+  <section class="screen" id="garage" hidden>
+    <div class="docbar"><button class="btn ghost" id="gBack" style="margin-top:0">BACK</button></div>
+    <p class="crash" style="margin-bottom:8px">Garage</p>
+    <canvas class="gpreview" id="gPreview" width="640" height="360" aria-label="Your vehicle"></canvas>
+    <p class="gnote" id="gNote">Everything here is unlocked by driving. Nothing can be bought.</p>
+    <p class="h3">Sticker</p><ul class="glist" id="gStickers"></ul>
+    <p class="h3">Horn</p><p class="how">Tap a horn to hear it.</p><ul class="glist" id="gHorns"></ul>
+    <p class="h3">Extras</p><ul class="glist" id="gExtras"></ul>
+    <div class="glowpick" id="gGlow" hidden></div>
+  </section>
+
   <section class="screen" id="doc" hidden>
     <div class="docbar"><button class="btn ghost" id="docClose" style="margin-top:0">BACK TO MENU</button></div>
     <article class="doc" id="docBody"></article>
@@ -370,6 +395,7 @@
     <div id="unlockMsg" class="unlockmsg" hidden></div>
     <div id="newBest" class="newbest" hidden>New best!</div>
     <div id="missionMsg" class="unlockmsg" hidden></div>
+    <div id="garageMsg" class="unlockmsg" hidden></div>
     <p class="crash" id="crashLine">Danfo no dey look road o.</p>
     <p class="meta" id="overMeta"></p>
     <p class="big" id="finalScore">0</p>
@@ -390,6 +416,7 @@
     <div class="missions" id="overMissions"></div>
     <button class="btn primary" id="againBtn">ONE MORE ROUND</button>
     <button class="btn ghost" id="menuBtn">MAIN MENU</button>
+    <button class="btn ghost" id="overGarageBtn">GARAGE</button>
     <p class="how" style="margin-top:16px">Fly Points are for ranking only. They have no cash value and cannot be exchanged for anything.</p>
   </section>
 </div>
@@ -398,7 +425,7 @@
 (() => {
   const C = { yellow: '#FAC206', red: '#E0322B', green: '#008751' };
   const canvas = document.getElementById('c');
-  const ctx = canvas.getContext('2d');
+  let ctx = canvas.getContext('2d'); // swapped briefly to draw the garage preview
   const wrap = document.getElementById('wrap');
   const $ = (id) => document.getElementById(id);
   const fmt = (n) => Math.floor(n).toLocaleString('en-NG');
@@ -495,6 +522,51 @@
     black:  { label: 'Midnight Black', hex: '#222326', streak: 'black' },
     chrome: { label: 'Chrome', hex: '#C9CED6', streak: 'chrome' }
   };
+
+  // ---------- garage: stickers, horns and extras, all unlocked by playing ----------
+  // lifetime stats on this phone decide what is open; nothing here can be bought
+  let life = store.get('flygidi_life', null);
+  if (!life || typeof life.runs !== 'number') life = { runs: 0, meters: 0, pax: 0, near: 0, hops: 0, stops: 0, bestExpert: 0, topRank: 1 };
+  const STICKERS = [
+    { id: 'none', name: 'No sticker', text: '' },
+    { id: 'shine', name: 'Shine Your Eye', text: 'SHINE YOUR EYE', need: null },
+    { id: 'change', name: 'Hold Your Change', text: 'HOLD YOUR CHANGE', need: null },
+    { id: 'noshaking', name: 'No Shaking', text: 'NO SHAKING', need: { stat: 'runs', goal: 5, label: 'Finish 5 races' } },
+    { id: 'gidi', name: 'Gidi Na Home', text: 'GIDI NA HOME', need: { stat: 'pax', goal: 25, label: 'Carry 25 passengers' } },
+    { id: 'condition', name: 'No Condition Is Permanent', text: 'NO CONDITION IS PERMANENT', need: { stat: 'meters', goal: 5000, label: 'Drive 5 km in total' } },
+    { id: 'patience', name: 'Patience Pays', text: 'PATIENCE PAYS', need: { stat: 'stops', goal: 30, label: 'Serve 30 bus stops' } },
+    { id: 'slowfast', name: 'Slow And Steady', text: 'SLOW AND STEADY', need: { stat: 'near', goal: 50, label: 'Make 50 close calls' } },
+    { id: 'eko', name: 'Eko O Ni Baje', text: 'EKO O NI BAJE', need: { stat: 'topRank', goal: 3, label: 'Reach mission rank 3 at any level' } },
+    { id: 'owa', name: 'Owa Driver!', text: 'OWA DRIVER!', need: { stat: 'pax', goal: 150, label: 'Carry 150 passengers' } }
+  ];
+  const HORNS = [
+    { id: 'classic', name: 'Classic Danfo', need: null },
+    { id: 'double', name: 'Double Toot', need: { stat: 'runs', goal: 10, label: 'Finish 10 races' } },
+    { id: 'okada', name: 'Okada Beep', need: { stat: 'hops', goal: 20, label: 'Hop over 20 potholes' } },
+    { id: 'trailer', name: 'Trailer Air Horn', need: { stat: 'meters', goal: 20000, label: 'Drive 20 km in total' } },
+    { id: 'agbero', name: 'Agbero Tune', need: { stat: 'pax', goal: 200, label: 'Carry 200 passengers' } }
+  ];
+  const EXTRAS = [
+    { id: 'rims', name: 'Chrome rims', fits: null, need: { stat: 'meters', goal: 10000, label: 'Drive 10 km in total' } },
+    { id: 'glow', name: 'Neon underglow', fits: null, need: { stat: 'near', goal: 100, label: 'Make 100 close calls' } },
+    { id: 'rack', name: 'Roof rack with load', fits: ['danfo', 'suv'], need: { stat: 'pax', goal: 75, label: 'Carry 75 passengers' } },
+    { id: 'spoiler', name: 'Rear spoiler', fits: ['sportcar', 'suv', 'danfo'], need: { stat: 'bestExpert', goal: 5000, label: 'Score 5,000 in one Expert race' } }
+  ];
+  const GLOWS = { yellow: '250,194,6', green: '60,230,120', blue: '70,160,255', pink: '255,80,200' };
+  let garage = Object.assign({ sticker: 'none', horn: 'classic', rims: false, glow: false, glowColor: 'blue', rack: false, spoiler: false }, store.get('flygidi_garage', {}));
+  const gOpen = (item) => !item.need || (life[item.need.stat] || 0) >= item.need.goal;
+  const gProgress = (item) => fmt(Math.min(life[item.need.stat] || 0, item.need.goal)) + '/' + fmt(item.need.goal);
+  const allGarage = () => STICKERS.concat(HORNS, EXTRAS).filter(i => i.need);
+  function saveGarage() { store.set('flygidi_garage', garage); }
+  // add this race to lifetime stats and report anything it opened in the garage
+  function addToLife(r, finalScore) {
+    const before = allGarage().filter(gOpen).map(i => i.id);
+    life.runs += 1; life.meters += r.meters; life.pax += r.pax; life.near += r.near; life.hops += r.hops; life.stops += r.stopsServed;
+    if (level === 'expert') life.bestExpert = Math.max(life.bestExpert || 0, finalScore);
+    life.topRank = Math.max(life.topRank || 1, ...Object.keys(LEVELS).map(l => getMissions(l).rank + 1));
+    store.set('flygidi_life', life);
+    return allGarage().filter(i => gOpen(i) && !before.includes(i.id)).map(i => i.name);
+  }
 
   // ---------- daily streak ----------
   // a day counts once you drive at least 100 m; days follow Lagos time
@@ -647,7 +719,13 @@
         setTimeout(() => { try { a.stop(); b.stop(); } catch (x) {} }, 400);
         eng = null; eng2 = null;
       },
-      horn() { tone(415, 0.22, 'square', 0.09); tone(523, 0.22, 'square', 0.07); tone(415, 0.28, 'square', 0.09, null, 0.28); tone(523, 0.28, 'square', 0.07, null, 0.28); },
+      horn(kind) {
+        if (kind === 'double') { [0, 0.16].forEach(d => { tone(466, 0.12, 'square', 0.09, null, d); tone(587, 0.12, 'square', 0.07, null, d); }); }
+        else if (kind === 'okada') { [0, 0.13, 0.26].forEach(d => tone(988, 0.09, 'square', 0.06, null, d)); }
+        else if (kind === 'trailer') { tone(185, 0.75, 'sawtooth', 0.11); tone(233, 0.75, 'sawtooth', 0.09); tone(277, 0.75, 'sawtooth', 0.06); }
+        else if (kind === 'agbero') { [523, 659, 784, 659, 880].forEach((f, i) => tone(f, 0.13, 'square', 0.07, null, i * 0.14)); }
+        else { tone(415, 0.22, 'square', 0.09); tone(523, 0.22, 'square', 0.07); tone(415, 0.28, 'square', 0.09, null, 0.28); tone(523, 0.28, 'square', 0.07, null, 0.28); }
+      },
       swoosh() { noise(0.12, 0.2, 2500, 'highpass'); },
       pass() { tone(880, 0.06, 'triangle', 0.05); },
       streak() { [660, 880, 1175].forEach((f, i) => tone(f, 0.1, 'triangle', 0.1, null, i * 0.07)); },
@@ -1030,7 +1108,7 @@
   }
   function honk() {
     if (state !== 'play' || hornCd > 0) return;
-    hornCd = HORN_COOLDOWN[level]; Sound.horn();
+    hornCd = HORN_COOLDOWN[level]; Sound.horn(garage.horn);
     let moved = 0, bus = false;
     for (const o of obstacles) {
       if (!LANE_TRAFFIC.includes(o.kind) || o.counted || o.lane !== player.lane) continue;
@@ -1197,7 +1275,7 @@
   $('testerBtn').onclick = () => { testerUnlock = true; store.set('flygidi_tester_unlock', true); renderMenu(); };
 
   const show = (id) => {
-    ['start', 'paused', 'over', 'doc', 'streak', 'tut', 'signin', 'board', 'profile'].forEach(s => $(s).hidden = s !== id);
+    ['start', 'paused', 'over', 'doc', 'streak', 'tut', 'signin', 'board', 'profile', 'garage'].forEach(s => $(s).hidden = s !== id);
     $('hud').hidden = !(id === null || id === 'paused');
     $('controls').hidden = id !== null; $('trip').hidden = id !== null;
     if (id !== null) $('conductor').classList.remove('show');
@@ -1211,7 +1289,7 @@
     unlockedBefore = ROUTE_ORDER.filter(isUnlocked);
     reset(); state = 'play'; show(null); last = performance.now();
     requestTicket();
-    Sound.horn(); Sound.engineStart();
+    Sound.horn(garage.horn); Sound.engineStart();
   }
   function togglePause() {
     if (state === 'play') { state = 'pause'; brakeKey = false; brakeBtnDown = false; renderMissions($('pauseMissions'), true); show('paused'); Sound.engineStop(); Voice.stop(); }
@@ -1442,6 +1520,59 @@
   if (auth) api('me').then(j => { if (j.ok) setProfile(j.profile); });
   renderAccount();
 
+  // ---------- garage screen ----------
+  let garageBack = 'start';
+  function drawGaragePreview() {
+    const c = $('gPreview'), g = c.getContext('2d'), W2 = c.width, H2 = c.height;
+    g.clearRect(0, 0, W2, H2);
+    g.fillStyle = '#2B2B2B'; g.fillRect(0, 0, W2, H2);
+    g.fillStyle = 'rgba(255,255,255,0.8)'; for (const lx of [W2 * 0.3, W2 * 0.7]) for (let yy = 10; yy < H2; yy += 60) g.fillRect(lx - 3, yy, 6, 32);
+    // draw the vehicle with the game's own renderer at a large size, sideways so it fills the frame
+    const L = H2 * 0.62, v = VEHICLES[vehicle], w = L * v.w, h = L * v.h, old = ctx;
+    ctx = g;
+    g.save(); g.translate(W2 / 2, H2 / 2); g.rotate(-Math.PI / 2); g.scale(1.25, 1.25);
+    drawRide(0, -h / 2, w, h, vehicle);
+    g.restore();
+    ctx = old;
+  }
+  function itemButton(item, pressed, onPick, extraNote) {
+    const li = document.createElement('li'), b = document.createElement('button');
+    const open = gOpen(item);
+    b.innerHTML = '<b></b><small></small>';
+    b.querySelector('b').textContent = item.name;
+    b.querySelector('small').textContent = open ? (extraNote || (pressed ? 'In use' : 'Tap to use')) : item.need.label + ' · ' + gProgress(item);
+    b.setAttribute('aria-pressed', String(open && pressed));
+    if (!open) { b.classList.add('locked'); b.setAttribute('aria-disabled', 'true'); }
+    b.onclick = () => { if (open) onPick(); };
+    li.appendChild(b); return li;
+  }
+  function renderGarage() {
+    const sl = $('gStickers'); sl.innerHTML = '';
+    if (vehicle === 'powerbike') { const li = document.createElement('li'); li.className = 'how'; li.style.gridColumn = '1 / -1'; li.textContent = 'A powerbike has no room for a sticker. Pick another vehicle on the menu to use one.'; sl.appendChild(li); }
+    for (const k of STICKERS) sl.appendChild(itemButton(k, garage.sticker === k.id, () => { garage.sticker = k.id; saveGarage(); renderGarage(); }));
+    const hl = $('gHorns'); hl.innerHTML = '';
+    for (const hn of HORNS) hl.appendChild(itemButton(hn, garage.horn === hn.id, () => { garage.horn = hn.id; saveGarage(); Sound.unlock(); Sound.horn(hn.id); renderGarage(); }));
+    const xl = $('gExtras'); xl.innerHTML = '';
+    for (const e of EXTRAS) {
+      const fitsVeh = !e.fits || e.fits.includes(vehicle);
+      const note = !fitsVeh ? 'Not for ' + VEHICLES[vehicle].label : garage[e.id] ? 'On. Tap to remove' : 'Off. Tap to fit';
+      xl.appendChild(itemButton(e, !!garage[e.id] && fitsVeh, () => { garage[e.id] = !garage[e.id]; saveGarage(); renderGarage(); }, note));
+    }
+    const gp = $('gGlow'); gp.hidden = !(garage.glow && gOpen(EXTRAS[1]));
+    if (!gp.children.length) for (const id in GLOWS) {
+      const b = document.createElement('button'); b.style.background = 'rgb(' + GLOWS[id] + ')'; b.dataset.glow = id; b.setAttribute('aria-label', id + ' underglow');
+      b.onclick = () => { garage.glowColor = id; saveGarage(); renderGarage(); }; gp.appendChild(b);
+    }
+    gp.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.glow === garage.glowColor)));
+    const openN = allGarage().filter(gOpen).length, total = allGarage().length;
+    $('gNote').textContent = VEHICLES[vehicle].label + ' in ' + COLORS[color].label + ' · ' + openN + ' of ' + total + ' rewards unlocked. Everything is earned by driving.';
+    drawGaragePreview();
+  }
+  function openGarage(from) { garageBack = from || 'start'; renderGarage(); show('garage'); $('garage').scrollTop = 0; }
+  $('garageBtn').onclick = () => openGarage('start');
+  $('overGarageBtn').onclick = () => openGarage('over');
+  $('gBack').onclick = () => { if (garageBack === 'over') { show('over'); } else { renderMenu(); show('start'); } };
+
   $('startBtn').onclick = startGame;
   $('againBtn').onclick = startGame;
   $('pauseBtn').onclick = togglePause;
@@ -1536,6 +1667,9 @@
     $('overStreak').textContent = streakStatus() === 'today' ? 'Streak: ' + ls + (ls === 1 ? ' day' : ' days') + '. Today don count. Come back tomorrow.' : 'Drive at least 100 m to count today for your streak.';
     if (runMissionsDone.length) { $('missionMsg').textContent = runMissionsDone.length === 1 ? 'Mission done: ' + runMissionsDone[0] : runMissionsDone.join(' · '); $('missionMsg').hidden = false; }
     else $('missionMsg').hidden = true;
+    const gNew = addToLife(run, s);
+    if (gNew.length) { $('garageMsg').textContent = 'Garage unlocked: ' + gNew.join(', '); $('garageMsg').hidden = false; }
+    else $('garageMsg').hidden = true;
     shake = quit ? 0 : 14;
     setTimeout(() => { if (counted) openStreak('run', fresh); else { show('over'); $('over').scrollTop = 0; } }, quit ? 0 : 450);
   }
@@ -2178,17 +2312,7 @@
       ctx.beginPath(); ctx.ellipse(player.x + lift * 8, player.y + player.h / 2 + lift * 12, player.w * 0.55, player.h * 0.5, 0, 0, Math.PI * 2); ctx.fill();
     }
     ctx.translate(player.x, player.y + player.h / 2 - lift * 14); ctx.rotate(player.tilt + wob); ctx.scale(1 + lift * 0.22, 1 + lift * 0.22); ctx.translate(-player.x, -(player.y + player.h / 2));
-    // a soft yellow glow under the player keeps it easy to spot whatever colour is chosen
-    const gx = player.x, gy = player.y + player.h / 2, gr = Math.max(player.w, player.h) * 0.75;
-    const glow = ctx.createRadialGradient(gx, gy, gr * 0.3, gx, gy, gr);
-    glow.addColorStop(0, 'rgba(250,194,6,0.35)'); glow.addColorStop(1, 'rgba(250,194,6,0)');
-    ctx.fillStyle = glow; ctx.beginPath(); ctx.ellipse(gx, gy, player.w * 0.95, player.h * 0.75, 0, 0, Math.PI * 2); ctx.fill();
-    const body = playerHex();
-    if (vehicle === 'keke') drawKeke(player.x, player.y, player.w, player.h, body, '#000', true);
-    else if (vehicle === 'powerbike') drawPowerbike(player.x, player.y, player.w, player.h, body);
-    else if (vehicle === 'suv') drawSUV(player.x, player.y, player.w, player.h, body);
-    else if (vehicle === 'sportcar') drawSportcar(player.x, player.y, player.w, player.h, body);
-    else drawDanfo(player.x, player.y, player.w, player.h, body, true);
+    drawRide(player.x, player.y, player.w, player.h, vehicle);
     // brake lights
     if (braking && state === 'play') {
       const by = player.y + player.h - 4, single = vehicle === 'powerbike' || vehicle === 'keke';
@@ -2200,6 +2324,57 @@
       }
     }
     ctx.restore();
+  }
+
+  // the player's vehicle with its paint and garage extras; also used for the garage preview
+  function drawRide(x, y, w, h, veh) {
+    // a soft glow under the vehicle keeps it easy to spot; neon underglow swaps its colour and makes it brighter
+    const neon = garage.glow && gOpen(EXTRAS[1]);
+    const rgb = neon ? GLOWS[garage.glowColor] || GLOWS.blue : GLOWS.yellow;
+    const gx = x, gy = y + h / 2, gr = Math.max(w, h) * 0.75;
+    const glow = ctx.createRadialGradient(gx, gy, gr * 0.3, gx, gy, gr);
+    glow.addColorStop(0, 'rgba(' + rgb + ',' + (neon ? 0.7 : 0.35) + ')'); glow.addColorStop(1, 'rgba(' + rgb + ',0)');
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.ellipse(gx, gy, w * (neon ? 1.1 : 0.95), h * (neon ? 0.85 : 0.75), 0, 0, Math.PI * 2); ctx.fill();
+    // chrome rims peek out under the body
+    if (garage.rims && gOpen(EXTRAS[0])) {
+      const rim = (cx, cy, r) => { ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#E3E7EC'; ctx.beginPath(); ctx.arc(cx, cy, r * 0.62, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#8A9099'; ctx.beginPath(); ctx.arc(cx, cy, r * 0.22, 0, Math.PI * 2); ctx.fill(); };
+      const r = Math.max(3, w * 0.13);
+      if (veh === 'powerbike') { rim(x, y + 2, r); rim(x, y + h - 2, r); }
+      else if (veh === 'keke') { rim(x, y + 2, r * 0.9); rim(x - w / 2, y + h * 0.78, r); rim(x + w / 2, y + h * 0.78, r); }
+      else for (const sx of [-1, 1]) for (const fy of [0.2, 0.8]) rim(x + sx * w / 2, y + h * fy, r);
+    }
+    const body = playerHex();
+    if (veh === 'keke') drawKeke(x, y, w, h, body, '#000', true);
+    else if (veh === 'powerbike') drawPowerbike(x, y, w, h, body);
+    else if (veh === 'suv') drawSUV(x, y, w, h, body);
+    else if (veh === 'sportcar') drawSportcar(x, y, w, h, body);
+    else drawDanfo(x, y, w, h, body, true);
+    // sticker band across the back, slogan painted on it
+    const st = STICKERS.find(k => k.id === garage.sticker);
+    if (st && st.text && gOpen(st) && veh !== 'powerbike') {
+      const by = y + h * 0.84, bh = Math.max(6, h * 0.1);
+      ctx.fillStyle = '#FFFFFF'; ctx.fillRect(x - w / 2 + 3, by, w - 6, bh);
+      ctx.save(); ctx.beginPath(); ctx.rect(x - w / 2 + 3, by, w - 6, bh); ctx.clip();
+      ctx.fillStyle = '#000'; ctx.font = '700 ' + Math.max(5, bh * 0.85) + 'px "Barlow Condensed", Arial, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const tw = ctx.measureText(st.text).width, room = w - 10;
+      if (tw > room) { ctx.translate(x, by + bh / 2); ctx.scale(room / tw, 1); ctx.fillText(st.text, 0, 0); } else ctx.fillText(st.text, x, by + bh / 2);
+      ctx.restore();
+    }
+    // roof rack with a tied down load
+    if (garage.rack && gOpen(EXTRAS[2]) && (veh === 'danfo' || veh === 'suv')) {
+      ctx.strokeStyle = '#2A2A2A'; ctx.lineWidth = 2; ctx.strokeRect(x - w * 0.36, y + h * 0.34, w * 0.72, h * 0.4);
+      for (let i = 1; i < 4; i++) { ctx.beginPath(); ctx.moveTo(x - w * 0.36, y + h * (0.34 + i * 0.1)); ctx.lineTo(x + w * 0.36, y + h * (0.34 + i * 0.1)); ctx.stroke(); }
+      ctx.fillStyle = '#8B5A33'; ctx.fillRect(x - w * 0.3, y + h * 0.38, w * 0.3, h * 0.14);
+      ctx.fillStyle = '#1F6FB2'; ctx.fillRect(x + w * 0.02, y + h * 0.4, w * 0.26, h * 0.18);
+      ctx.fillStyle = '#C0392B'; ctx.fillRect(x - w * 0.22, y + h * 0.55, w * 0.42, h * 0.13);
+      ctx.strokeStyle = '#E8E2D4'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x - w * 0.34, y + h * 0.36); ctx.lineTo(x + w * 0.34, y + h * 0.72); ctx.moveTo(x + w * 0.34, y + h * 0.36); ctx.lineTo(x - w * 0.34, y + h * 0.72); ctx.stroke();
+    }
+    // rear spoiler
+    if (garage.spoiler && gOpen(EXTRAS[3]) && EXTRAS[3].fits.includes(veh)) {
+      ctx.fillStyle = '#111'; ctx.fillRect(x - w / 2 - 3, y + h - 3, w + 6, 5);
+      ctx.fillRect(x - w * 0.3, y + h - 7, 3, 5); ctx.fillRect(x + w * 0.3 - 3, y + h - 7, 3, 5);
+    }
   }
 
   // ---------- lighting ----------
