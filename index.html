@@ -583,37 +583,69 @@
       brake() { noise(0.22, 0.06, 2800, 'bandpass'); },
       ding() { tone(1175, 0.12, 'sine', 0.1); tone(1568, 0.22, 'sine', 0.08, null, 0.11); },
       missed() { tone(392, 0.18, 'square', 0.06); tone(311, 0.26, 'square', 0.06, null, 0.18); },
-      mission() { [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.14, 'triangle', 0.1, null, i * 0.09)); }
+      mission() { [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.14, 'triangle', 0.1, null, i * 0.09)); },
+      // recorded clips (the conductor) play through the same channel as the game sounds
+      ctx() { return ac; },
+      playBuffer(buf, delay) {
+        if (!on()) return null;
+        const src = ac.createBufferSource(), g = ac.createGain(); g.gain.value = 1.4;
+        src.buffer = buf; src.connect(g); g.connect(master); src.start(ac.currentTime + (delay || 0));
+        return src;
+      }
     };
   })();
 
   // ---------- conductor voice ----------
-  // uses the phone's own speech engine, preferring a Nigerian English voice when the phone has one.
-  // recorded voice lines can replace this later without changing the game logic.
+  // The conductor speaks from recorded Lagos voice clips in /voice, listed in voice/manifest.json.
+  // A line with no recording shows as text only. The phone's own speech engine is used only when the
+  // phone has a Nigerian English voice, so the game never speaks in a foreign accent.
   let voiceOn = store.get('flygidi_voice', true);
+  const slug = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
   const Voice = (() => {
     const synth = window.speechSynthesis;
-    let chosen = null, primed = false;
+    let ngVoice = null, manifest = null, playing = [];
+    const buffers = {}, loading = {};
     function choose() {
       if (!synth) return;
       const vs = synth.getVoices() || [];
-      chosen = vs.find(v => /en[-_]NG/i.test(v.lang)) || vs.find(v => /Nigeria/i.test(v.name)) || vs.find(v => /en[-_]GB/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null;
+      ngVoice = vs.find(v => /en[-_]NG/i.test(v.lang)) || vs.find(v => /Nigeria/i.test(v.name)) || null;
     }
     if (synth) { choose(); try { synth.addEventListener('voiceschanged', choose); } catch (e) { synth.onvoiceschanged = choose; } }
+    fetch('voice/manifest.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(m => { manifest = m && m.clips ? m : null; }).catch(() => {});
+    const has = (k) => !!(manifest && manifest.clips.includes(k));
+    function load(k) {
+      if (buffers[k] || loading[k] || !has(k)) return loading[k];
+      const ac = Sound.ctx(); if (!ac) return null;
+      loading[k] = fetch('voice/' + k + '.' + (manifest.ext || 'mp3')).then(r => r.arrayBuffer())
+        .then(b => new Promise((res, rej) => ac.decodeAudioData(b, res, rej)))
+        .then(buf => { buffers[k] = buf; return buf; }).catch(() => null);
+      return loading[k];
+    }
+    function stop() {
+      playing.forEach(p => { try { p.stop(); } catch (e) {} }); playing = [];
+      try { if (synth) synth.cancel(); } catch (e) {}
+    }
     return {
-      // iPhones only allow speech that starts inside a tap, so the first call happens on START
-      prime() { if (!synth || primed) return; try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; synth.speak(u); primed = true; } catch (e) {} },
-      say(text) {
-        if (!synth || !soundOn || !voiceOn) return;
-        try {
-          synth.cancel();
-          const u = new SpeechSynthesisUtterance(text);
-          if (chosen) { u.voice = chosen; u.lang = chosen.lang; } else u.lang = 'en-NG';
-          u.rate = 1.12; u.pitch = 0.9; u.volume = 1;
-          synth.speak(u);
-        } catch (e) {}
+      // load the clips for this route as the race starts, so the first call is not late
+      warm(keys) { keys.forEach(load); },
+      prime() { if (synth && ngVoice) { try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; synth.speak(u); } catch (e) {} } },
+      // keys: clip names played in order; text: what the speech engine says if a Nigerian voice exists and clips are missing
+      say(keys, text) {
+        if (!soundOn || !voiceOn) return;
+        stop();
+        if (keys.every(has)) {
+          Promise.all(keys.map(load)).then(bufs => {
+            if (bufs.some(b => !b) || state !== 'play') return;
+            let at = 0;
+            for (const b of bufs) { const src = Sound.playBuffer(b, at); if (src) playing.push(src); at += b.duration + 0.05; }
+          });
+          return;
+        }
+        if (synth && ngVoice && text) {
+          try { const u = new SpeechSynthesisUtterance(text); u.voice = ngVoice; u.lang = ngVoice.lang; u.rate = 1.05; synth.speak(u); } catch (e) {}
+        }
       },
-      stop() { try { if (synth) synth.cancel(); } catch (e) {} }
+      stop
     };
   })();
   // any tap, click or key press anywhere can unlock audio, which iOS and Android both require
@@ -837,7 +869,7 @@
     obstacles.push(b); stopSeq++;
     const down = passengers.filter(p => p.dest === b.seq).length;
     conductor('Conductor', pick(LINES.approach)(b.name));
-    Voice.say(b.name + '! ' + b.name + '!');
+    Voice.say(['stop_' + slug(b.name)], b.name + '! ' + b.name + '!');
   }
   function serveBay(b) {
     b.done = true;
@@ -858,7 +890,7 @@
     toast(msg || (board ? board + ' on board' : 'Stop served'));
     const next = stopName(stopSeq);
     conductor('Conductor', pick(LINES.next)(next));
-    Voice.say('Next stop, ' + next + '!');
+    Voice.say(['next_stop', 'stop_' + slug(next)], 'Next stop, ' + next + '!');
   }
   function missBay(b) {
     run.stopRun = 0;
@@ -867,7 +899,9 @@
     passengers = passengers.filter(p => p.dest !== b.seq);
     mult = 1; cleanStreak = 0;
     toast('Missed stop! Combo lost'); Sound.missed();
-    conductor('Passenger', pick(LINES.missed));
+    const mi = (Math.random() * LINES.missed.length) | 0;
+    conductor('Passenger', LINES.missed[mi]);
+    Voice.say(['missed_' + (mi + 1)], LINES.missed[mi]);
   }
   function handleBay(b, dt) {
     if (!b.done) {
@@ -1075,7 +1109,7 @@
     if (nx && rk.list.length) html += '<li><span>Finish all three to reach ' + fmtMult(nx.mult) + '</span><b></b></li>';
     el.innerHTML = html + '</ul>';
   }
-  $('voiceToggle').onclick = () => { voiceOn = !voiceOn; store.set('flygidi_voice', voiceOn); if (!voiceOn) Voice.stop(); else { Voice.prime(); Voice.say('Oya, enter!'); } renderMenu(); };
+  $('voiceToggle').onclick = () => { voiceOn = !voiceOn; store.set('flygidi_voice', voiceOn); if (!voiceOn) Voice.stop(); else { Sound.unlock(); Voice.prime(); Voice.say(['oya_enter'], 'Oya, enter!'); } renderMenu(); };
   function toggleSound() { soundOn = !soundOn; store.set('flygidi_sound', soundOn); Sound.setOn(soundOn); renderMenu(); }
   $('soundToggle').onclick = toggleSound;
   $('muteBtn').onclick = toggleSound;
@@ -1092,6 +1126,7 @@
     if (!isUnlocked(route)) return;
     if (!store.get('flygidi_tutorial_done', false)) { openTutorial(true); return; }
     Sound.unlock(); Voice.prime();
+    Voice.warm(['next_stop', 'missed_1', 'missed_2', 'missed_3'].concat(STOPS[route].map(n => 'stop_' + slug(n))));
     unlockedBefore = ROUTE_ORDER.filter(isUnlocked);
     reset(); state = 'play'; show(null); last = performance.now();
     Sound.horn(); Sound.engineStart();
