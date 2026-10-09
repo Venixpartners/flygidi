@@ -25,11 +25,23 @@ The game server is the edge function `flygidi-api`, kept in `supabase/functions/
 
 Leaderboards show usernames only. Phone numbers are never shown to other players.
 
+## App and offline play
+
+FlyGidi installs to the home screen from the browser (`manifest.webmanifest`, `sw.js`, `icons/`) and opens full screen. After the first visit it loads with no connection. A race finished offline is saved on the phone and posts to the boards when the connection returns, within three days. Phones with little memory, few cores or data saver on start in a light mode that draws at standard resolution with lighter effects, and any phone drops to it automatically if frames run slow.
+
+## Billing switch
+
+Until the aggregator is connected, every signed in player can play. When billing goes live, set the secret `FLYGIDI_BILLING_LIVE` to `true` on the `flygidi-api` function. The game will then need an active row in `flygidi.subscriptions` to start a race. A plan confirmed in the last 48 hours still counts while the phone is offline.
+
+## Tuning difficulty
+
+Every race records how it ended (the obstacle hit, or `quit`) and how far it got. The view `flygidi.run_end_summary` shows, for each route and level over the last 30 days, the number of races, the median and lower quartile distance, the share ending before 300 m and the most common endings. Open it from the Supabase SQL editor with `select * from flygidi.run_end_summary;`.
+
 ## Roadmap
 
 1. Game prototype and routes (done)
 2. Backend on Supabase: phone number sign in, server checked scores, leaderboards per route and level (done)
-3. Portal pages, subscription access checks and admin dashboard
+3. Garage, installable app, offline play and subscription access checks (done)
 4. Aggregator integration for opt in, renewal and opt out on 7996
 
 ## Deployment

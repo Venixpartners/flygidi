@@ -59,7 +59,7 @@ function cleanName(raw: unknown): string | null {
 }
 const ymd = (v: unknown) => (v instanceof Date ? v.toISOString().slice(0, 10) : v ? String(v).slice(0, 10) : null);
 const int = (v: unknown, max = 10_000_000) => Math.max(0, Math.min(max, Math.floor(Number(v) || 0)));
-const lagosToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+const lagosToday = (d: Date = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
 
 async function playerFromToken(token: unknown) {
   if (typeof token !== "string" || token.length < 20) return null;
@@ -95,6 +95,15 @@ async function settleChampions() {
   }
 }
 
+// Access to play. Until billing goes live at aggregator integration, every signed in player has access.
+// Set FLYGIDI_BILLING_LIVE=true on this function to require an active 7996 subscription.
+const BILLING_LIVE = Deno.env.get("FLYGIDI_BILLING_LIVE") === "true";
+async function accessOf(p: any) {
+  if (!BILLING_LIVE) return { active: true, billing: false, until: null };
+  const s = await sql`select plan, ends_at from flygidi.subscriptions where player_id = ${p.id} and status = 'active' and ends_at > now() order by ends_at desc limit 1`;
+  return { active: s.length > 0, billing: true, plan: s[0]?.plan ?? null, until: s[0]?.ends_at ?? null };
+}
+
 async function profileOf(p: any) {
   const badges = await sql`select badge, earned_at from flygidi.badges_earned where player_id = ${p.id} order by earned_at`;
   const [{ wins }] = await sql`select count(*)::int wins from flygidi.champions where player_id = ${p.id}`;
@@ -106,6 +115,7 @@ async function profileOf(p: any) {
     totals: p.totals ?? {},
     wins,
     badges: BADGES.map((b) => ({ ...b, earned: badges.some((e: any) => e.badge === b.id) })),
+    access: await accessOf(p),
   };
 }
 
@@ -170,19 +180,41 @@ async function submitRun(p: any, body: any) {
     where id = ${ticketId} and player_id = ${p.id} and used_at is null and issued_at > now() - interval '3 hours'
     returning route, level, vehicle, extract(epoch from (now() - issued_at)) as elapsed`;
   if (!tk.length) return fail("This race was already posted or has expired.");
-  const t = tk[0];
+  return await finishRun(p, tk[0], body, ticketId, Number(tk[0].elapsed), false);
+}
+
+// a race played without a connection, posted when the phone is back online
+async function submitOffline(p: any, body: any) {
+  const oid = String(body.oid ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(oid)) return fail("Missing race id.");
+  if (!LEVELS[body.level] || ROUTES[body.route] === undefined || !VEHICLES[body.vehicle]) return fail("Unknown route, level or vehicle.");
+  const playedAt = Number(body.played_at);
+  const age = Date.now() - playedAt;
+  if (!Number.isFinite(playedAt) || age < -5 * 60_000 || age > 72 * 3_600_000) return fail("Races played offline must be posted within 3 days.");
+  // the client's race id doubles as a used ticket, so the same race can never post twice
+  const ins = await sql`
+    insert into flygidi.run_tickets (id, player_id, route, level, vehicle, issued_at, used_at)
+    values (${oid}, ${p.id}, ${body.route}, ${body.level}, ${body.vehicle}, to_timestamp(${playedAt / 1000}), now())
+    on conflict (id) do nothing returning id`;
+  if (!ins.length) return json({ ok: true, accepted: false, duplicate: true });
+  const t = { route: body.route, level: body.level, vehicle: body.vehicle };
+  // no server clock for an offline race, so the play time stands in for it; every other check still applies
+  return await finishRun(p, t, body, oid, int(body.duration_ms, 86_400_000) / 1000 + 5, true, new Date(playedAt));
+}
+
+async function finishRun(p: any, t: any, body: any, ticketId: string, elapsed: number, offline: boolean, playedAt: Date | null = null) {
   const r = {
     score: int(body.score), meters: int(body.meters), passed: int(body.passed), pax: int(body.pax),
     near: int(body.near), stops: int(body.stops), hops: int(body.hops), combo: int(body.combo, 9),
     mult: Math.round((Number(body.mult) || 1) * 10) / 10, rank: int(body.rank, 9), duration_ms: int(body.duration_ms, 86_400_000),
   };
-  const reason = checkRun(t, r, Number(t.elapsed));
+  const reason = checkRun(t, r, elapsed);
   const end = typeof body.end === "string" ? body.end.slice(0, 24) : null;
   await sql`
     insert into flygidi.runs (player_id, route, level, vehicle, color, score, distance_m, passed, duration_ms, client_version, flagged, flag_reason,
-      ticket_id, passengers, near_misses, stops, hops, best_combo, multiplier, mission_rank, end_reason)
+      ticket_id, passengers, near_misses, stops, hops, best_combo, multiplier, mission_rank, end_reason, offline, played_at)
     values (${p.id}, ${t.route}, ${t.level}, ${t.vehicle}, ${String(body.color ?? "").slice(0, 16) || null}, ${r.score}, ${r.meters}, ${r.passed}, ${r.duration_ms},
-      ${String(body.v ?? "").slice(0, 16) || null}, ${reason !== null}, ${reason}, ${ticketId}, ${r.pax}, ${r.near}, ${r.stops}, ${r.hops}, ${r.combo}, ${r.mult}, ${r.rank}, ${end})`;
+      ${String(body.v ?? "").slice(0, 16) || null}, ${reason !== null}, ${reason}, ${ticketId}, ${r.pax}, ${r.near}, ${r.stops}, ${r.hops}, ${r.combo}, ${r.mult}, ${r.rank}, ${end}, ${offline}, ${playedAt})`;
   if (reason) return json({ ok: true, accepted: false, reason });
 
   // totals, streak and badges for accepted races
@@ -190,9 +222,10 @@ async function submitRun(p: any, body: any) {
   tot.runs += 1; tot.meters += r.meters; tot.pax += r.pax; tot.near += r.near;
   if (!tot.routes.includes(t.route)) tot.routes.push(t.route);
   let { streak_count: sc, streak_last: sl, streak_best: sb } = p;
-  const today = lagosToday();
+  const today = lagosToday(playedAt ?? new Date());
   const last = ymd(sl);
-  if (r.meters >= 100 && last !== today) {
+  // an offline race posted late can only extend the streak forward, never rewrite it
+  if (r.meters >= 100 && last !== today && (!last || today > last)) {
     const gap = last ? Math.round((Date.parse(today) - Date.parse(last)) / 86_400_000) : 99;
     sc = gap === 1 ? sc + 1 : 1; sb = Math.max(sb, sc); sl = today;
   }
@@ -282,6 +315,7 @@ Deno.serve(async (req) => {
     if (action === "me") { await settleChampions(); return json({ ok: true, profile: await profileOf(p) }); }
     if (action === "start") return await startRun(p, body);
     if (action === "submit") return await submitRun(p, body);
+    if (action === "submit_offline") return await submitOffline(p, body);
     if (action === "title") {
       const id = String(body.title ?? "");
       const own = await sql`select 1 from flygidi.badges_earned where player_id = ${p.id} and badge = ${id}`;

@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#000000">
 <title>FlyGidi</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FlyGidi">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;1,800&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
@@ -286,6 +293,7 @@
     <p class="note" id="colorNote"></p>
 
     <button class="btn primary" id="startBtn">OYA, START RACE</button>
+    <button class="btn ghost" id="installBtn" hidden>INSTALL THE APP · PLAYS OFFLINE</button>
     <div class="foot">
       <p class="how">Tap left or right to change lanes. Hold BRAKE to stop in the yellow bus stop box. HOP or swipe up over potholes. HORN clears your lane.<br>Computer: arrow keys to steer, down to brake, space to hop, H for horn.</p>
       <div class="ctlgroup">
@@ -425,7 +433,11 @@
 (() => {
   const C = { yellow: '#FAC206', red: '#E0322B', green: '#008751' };
   const canvas = document.getElementById('c');
-  let ctx = canvas.getContext('2d'); // swapped briefly to draw the garage preview
+  // an opaque canvas is cheaper for phones to draw; the game paints every pixel each frame anyway
+  let ctx = canvas.getContext('2d', { alpha: false }) || canvas.getContext('2d'); // swapped briefly to draw the garage preview
+  // phones with little memory, few cores or data saver on start in light mode
+  const conn = navigator.connection || {};
+  let lite = (navigator.deviceMemory && navigator.deviceMemory <= 2) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) || conn.saveData === true;
   const wrap = document.getElementById('wrap');
   const $ = (id) => document.getElementById(id);
   const fmt = (n) => Math.floor(n).toLocaleString('en-NG');
@@ -811,7 +823,7 @@
   ['touchend', 'pointerup', 'mouseup', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, () => Sound.unlock(), { capture: true, passive: true }));
 
   // ---------- sizing ----------
-  let W = 0, H = 0, DPR = 1, lowQuality = false, perfT = 0, perfN = 0;
+  let W = 0, H = 0, DPR = 1, lowQuality = lite, perfT = 0, perfN = 0;
   const LANES = 4;
   const road = { x: 0, w: 0, lane: 0 };
   function resize() {
@@ -1283,6 +1295,8 @@
   let unlockedBefore = [];
   function startGame() {
     if (!isUnlocked(route)) return;
+    const blocked = accessBlock();
+    if (blocked) { renderMenu(); show('start'); $('routeNote').textContent = blocked; toast('Plan needed'); return; }
     if (!store.get('flygidi_tutorial_done', false)) { openTutorial(true); return; }
     Sound.unlock(); Voice.prime();
     Voice.warm(['next_stop', 'missed_1', 'missed_2', 'missed_3'].concat(STOPS[route].map(n => 'stop_' + slug(n))));
@@ -1491,34 +1505,94 @@
   $('pfBack').onclick = () => { renderMenu(); show('start'); };
   $('pfOut').onclick = async () => { await api('signout'); auth = null; store.set('flygidi_auth', null); renderAccount(); renderMenu(); show('start'); };
 
-  // race tickets and score posting
-  let runTicket = null;
+  // race tickets, score posting and the offline queue
+  let runTicket = null, runOid = null, runPlayedAt = 0;
+  const uuid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); });
   function requestTicket() {
-    runTicket = null;
+    runTicket = null; runOid = uuid(); runPlayedAt = Date.now();
     if (!auth) return;
-    runTicket = api('start', { route, level, vehicle }).then(j => (j.ok ? j.ticket : null));
+    runTicket = navigator.onLine === false ? Promise.resolve(null) : api('start', { route, level, vehicle }).then(j => (j.ok ? j.ticket : null));
+  }
+  const raceData = (endKind) => ({
+    score: Math.floor(score), meters: run.meters, passed, pax: run.pax, near: run.near, stops: run.stopsServed, hops: run.hops,
+    combo: run.combo, mult: mMult, rank: Math.min(mState.rank, MISSION_RANKS.length - 1) + 1, duration_ms: Math.round(t * 1000),
+    end: endKind, color, v: CLIENT_V
+  });
+  // races finished without a connection wait on the phone and post when it is back online
+  let queue = store.get('flygidi_queue', []);
+  if (!Array.isArray(queue)) queue = [];
+  function queueRace(data) {
+    queue.push(Object.assign({ oid: runOid, route, level, vehicle, played_at: runPlayedAt }, data));
+    queue = queue.filter(q => Date.now() - q.played_at < 72 * 3600000).slice(-30);
+    store.set('flygidi_queue', queue);
+  }
+  let flushing = false;
+  async function flushQueue() {
+    if (flushing || !auth || !queue.length || navigator.onLine === false) return;
+    flushing = true;
+    let posted = 0;
+    for (const q of queue.slice()) {
+      const j = await api('submit_offline', q);
+      if (j.offline) break; // still no connection; try again later
+      queue = queue.filter(x => x.oid !== q.oid); store.set('flygidi_queue', queue);
+      if (j.ok && j.accepted) { posted++; syncStreak(j.streak); }
+    }
+    flushing = false;
+    if (posted) toast(posted === 1 ? 'Offline race posted' : posted + ' offline races posted');
   }
   async function postRun(endKind) {
     const box = $('postMsg');
     if (!auth) { box.hidden = false; box.textContent = 'Sign in from the menu to post your scores to the leaderboard.'; return; }
     box.hidden = false; box.textContent = 'Posting your score...';
+    const data = raceData(endKind);
     const ticket = runTicket ? await runTicket : null;
-    if (!ticket) { box.textContent = 'This race could not be posted because the game was offline when it started.'; return; }
-    const j = await api('submit', {
-      ticket, score: Math.floor(score), meters: run.meters, passed, pax: run.pax, near: run.near, stops: run.stopsServed, hops: run.hops,
-      combo: run.combo, mult: mMult, rank: Math.min(mState.rank, MISSION_RANKS.length - 1) + 1, duration_ms: Math.round(t * 1000),
-      end: endKind, color, v: CLIENT_V
-    });
+    const j = ticket ? await api('submit', Object.assign({ ticket }, data)) : { ok: false, offline: true };
     runTicket = null;
+    if (j.offline) { queueRace(data); box.textContent = 'You are offline. This race is saved on your phone and will post to the boards when you reconnect.'; return; }
     if (!j.ok) { box.textContent = j.error || 'Could not post this race.'; return; }
     if (!j.accepted) { box.textContent = 'This score could not be verified, so it was not added to the boards.'; return; }
     syncStreak(j.streak);
     box.innerHTML = '<b></b><span></span>';
     box.querySelector('b').textContent = 'Posted. #' + j.dayRank + ' today';
     box.querySelector('span').textContent = ' on ' + ROUTES[route].name + ', ' + LEVELS[level].label + '.' + (j.newBadges && j.newBadges.length ? ' New badge: ' + j.newBadges.map(b => b.title).join(', ') + '.' : '');
+    flushQueue();
   }
-  if (auth) api('me').then(j => { if (j.ok) setProfile(j.profile); });
+
+  // ---------- access to play ----------
+  // Once billing is live at integration, a signed in player needs an active plan. When the phone is
+  // offline, a plan confirmed in the last 48 hours still counts, so a bad network does not lock anyone out.
+  const GRACE_MS = 48 * 3600000;
+  function refreshProfile() {
+    if (!auth) return Promise.resolve();
+    return api('me').then(j => { if (j.ok) { if (j.profile.access && j.profile.access.active) auth.accessOkAt = Date.now(); setProfile(j.profile); } });
+  }
+  function accessBlock() {
+    const a = auth && auth.profile && auth.profile.access;
+    if (!a || !a.billing) return null;
+    if (navigator.onLine === false) return Date.now() - (auth.accessOkAt || 0) < GRACE_MS ? null : 'Connect to the internet once so we can confirm your FlyGidi plan, then you can play offline again.';
+    if (a.active) return null;
+    return a.until || auth.accessOkAt ? 'Your FlyGidi plan has ended. Renew on 7996 to keep racing.' : 'You need an active FlyGidi plan to race. Subscribe on 7996 to start.';
+  }
+  window.addEventListener('online', () => { refreshProfile().then(flushQueue); });
+  if (auth) refreshProfile().then(flushQueue);
   renderAccount();
+
+  // ---------- install as an app ----------
+  let installEvt = null;
+  const standalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || (window.matchMedia && matchMedia('(display-mode: fullscreen)').matches) || navigator.standalone === true;
+  const isIosSafari = () => IS_IOS && !/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
+  function renderInstall() { $('installBtn').hidden = standalone() || !(installEvt || isIosSafari()) || store.get('flygidi_install_done', false); }
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; renderInstall(); });
+  window.addEventListener('appinstalled', () => { store.set('flygidi_install_done', true); installEvt = null; renderInstall(); toast('FlyGidi is on your home screen'); });
+  $('installBtn').onclick = async () => {
+    if (installEvt) { installEvt.prompt(); try { await installEvt.userChoice; } catch (e) {} installEvt = null; renderInstall(); return; }
+    $('docBody').innerHTML = '<h2>Install FlyGidi</h2><p>Put FlyGidi on your home screen. It opens full screen like a real app and keeps playing when your network drops.</p><h3>On iPhone</h3><ul><li>Open this page in Safari.</li><li>Tap the Share button at the bottom of the screen.</li><li>Scroll down and tap Add to Home Screen, then Add.</li></ul><h3>On Android</h3><ul><li>Open this page in Chrome.</li><li>Tap the menu with three dots.</li><li>Tap Install app or Add to Home screen.</li></ul>';
+    show('doc'); $('doc').scrollTop = 0;
+  };
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
+  }
+  renderInstall();
 
   // ---------- garage screen ----------
   let garageBack = 'start';
@@ -2214,7 +2288,7 @@
     ctx.strokeStyle = 'rgba(210,225,240,0.55)'; ctx.lineWidth = 1.2;
     const tt = performance.now() / 1000;
     ctx.beginPath();
-    for (let i = 0; i < 140; i++) { const x = (i * 37.7 + tt * 60) % W, y = ((i * 91.3 + tt * 950) % (H + 40)) - 20; ctx.moveTo(x, y); ctx.lineTo(x - 3, y + 14); }
+    for (let i = 0, n = lite ? 50 : 140; i < n; i++) { const x = (i * 37.7 + tt * 60) % W, y = ((i * 91.3 + tt * 950) % (H + 40)) - 20; ctx.moveTo(x, y); ctx.lineTo(x - 3, y + 14); }
     ctx.stroke();
     ctx.restore();
   }
@@ -2446,17 +2520,19 @@
   }
 
   // ---------- loop ----------
-  let last = performance.now();
+  let last = performance.now(), frameN = 0;
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (state === 'play') {
       update(dt);
-      // slow phones drop to standard resolution so the game stays smooth
-      if (!lowQuality) { perfT += dt; perfN++; if (perfN >= 120) { if (perfT / perfN > 0.026 && DPR > 1) { lowQuality = true; resize(); } perfT = 0; perfN = 0; } }
+      // if frames run slow, first drop to standard resolution, then to light effects
+      if (!lite) { perfT += dt; perfN++; if (perfN >= 120) { const slow = perfT / perfN > 0.026; if (slow && !lowQuality && DPR > 1) { lowQuality = true; resize(); } else if (slow && lowQuality) lite = true; perfT = 0; perfN = 0; } }
     }
     else if (state === 'menu') { updateScene(140 * dt); player.y = H - player.h - Math.min(90, Math.max(40, H * 0.12)); }
     else if (shake > 0) shake = Math.max(0, shake - dt * 40);
-    draw();
+    // behind the menus the road only needs to look alive, so light mode draws it at half the rate to save battery
+    frameN = (frameN + 1) % 2;
+    if (state === 'play' || !lite || frameN === 0) draw();
     requestAnimationFrame(frame);
   }
 
