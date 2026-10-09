@@ -48,7 +48,8 @@
   .toast.show { opacity: 1; }
 
   .screen { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 24px 20px 28px; background: rgba(0,0,0,.82); overflow-y: auto; touch-action: pan-y; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
-  .screen.center { justify-content: center; }
+  .screen.center { justify-content: flex-start; }
+  .screen.center::before, .screen.center::after { content: ''; flex: 0 0 0; margin: auto 0; }
   .screen > * { flex-shrink: 0; }
   .logo { width: min(260px, 72%); height: auto; display: block; margin: 4px 0 10px; }
   .tag { font-family: var(--cond); font-style: italic; font-weight: 800; font-size: 28px; line-height: 1.05; margin: 0 0 18px; color: var(--yellow); }
@@ -75,7 +76,7 @@
   .btn.ghost { background: transparent; color: #fff; border: 2px solid #fff; margin-top: 12px; }
   .foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 16px; }
   .how { margin: 0; color: #bdbdbd; font-size: 13px; line-height: 1.5; }
-  .link { background: none; border: 0; color: #bdbdbd; text-decoration: underline; font-size: 12px; padding: 6px 0; cursor: pointer; white-space: nowrap; }
+  .link { background: none; border: 0; color: #bdbdbd; text-decoration: underline; font-size: 12px; padding: 0 2px; min-height: 44px; cursor: pointer; white-space: nowrap; }
   .soundbtn { background: none; border: 2px solid #fff; color: #fff; border-radius: 10px; padding: 8px 12px; font-family: var(--cond); font-weight: 700; font-size: 16px; cursor: pointer; white-space: nowrap; }
 
   .big { font-family: var(--cond); font-weight: 700; font-size: 72px; line-height: 1; margin: 0; font-variant-numeric: tabular-nums; }
@@ -118,6 +119,7 @@
   .doc ul { padding-left: 20px; }
   .doc .updated { color: #9a9a9a; font-size: 13px; margin-bottom: 14px; }
   .docbar { position: sticky; top: -24px; margin: -24px -20px 12px; padding: 14px 20px; background: #000; z-index: 1; }
+  @media (max-width: 350px) { .docbar { margin-left: -14px; margin-right: -14px; padding-left: 14px; padding-right: 14px; } }
   /* in race panels: next stop, seats, speed badge */
   .trip[hidden], .controls[hidden], .conductor[hidden], .fast[hidden] { display: none; }
   .trip { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); width: min(220px, 52%); text-align: center; pointer-events: none; background: rgba(0,0,0,.6); border-radius: 10px; padding: 6px 10px; }
@@ -130,8 +132,8 @@
   .conductor.show { opacity: 1; }
   .controls { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 10px 14px; pointer-events: none; }
   .ctlgroup { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-  .ctl { pointer-events: auto; position: relative; width: 66px; height: 66px; border-radius: 50%; border: 2px solid rgba(255,255,255,.9); background: rgba(0,0,0,.55); color: #fff; font-family: var(--cond); font-weight: 700; font-size: 16px; letter-spacing: .03em; cursor: pointer; touch-action: none; -webkit-user-select: none; user-select: none; overflow: hidden; }
-  .ctl.small { width: 52px; height: 52px; font-size: 13px; }
+  .ctl { pointer-events: auto; position: relative; padding: 0; width: 66px; height: 66px; border-radius: 50%; border: 2px solid rgba(255,255,255,.9); background: rgba(0,0,0,.55); color: #fff; font-family: var(--cond); font-weight: 700; font-size: 16px; letter-spacing: .03em; cursor: pointer; touch-action: none; -webkit-user-select: none; user-select: none; overflow: hidden; }
+  .ctl.small { width: 52px; height: 52px; font-size: 12px; letter-spacing: 0; }
   .ctl.brake { width: 74px; height: 74px; border-color: var(--red); }
   .ctl.brake.on { background: var(--red); }
   .ctl.brake.cue:not(.on) { box-shadow: 0 0 0 4px var(--yellow); }
@@ -146,7 +148,7 @@
   .missions li.done { color: #8fd19e; }
   .missions li b { font-weight: 500; color: #bdbdbd; white-space: nowrap; }
   .missions li.done b { color: #8fd19e; }
-  @media (max-height: 620px) { .ctl { width: 56px; height: 56px; } .ctl.brake { width: 62px; height: 62px; } .ctl.small { width: 46px; height: 46px; } .conductor { top: 108px; } }
+  @media (max-height: 620px) { .ctl { width: 56px; height: 56px; font-size: 14px; letter-spacing: 0; } .ctl.brake { width: 62px; height: 62px; font-size: 13px; } .ctl.small { width: 46px; height: 46px; font-size: 11px; } .conductor { top: 108px; } }
   /* streak, tutorial and run summary */
   .streakbar { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; }
   .streakbadge { display: inline-flex; align-items: baseline; gap: 6px; background: var(--yellow); color: #000; border-radius: 8px; padding: 4px 10px; font-family: var(--cond); font-weight: 700; font-size: 17px; }
@@ -1160,7 +1162,9 @@
     const n = Math.max(0, Math.min(LANES - 1, player.lane + d));
     if (n !== player.lane) { player.lane = n; player.tx = laneX(n); player.tilt = d * 0.18; Sound.swoosh(); }
   }
+  const typing = (e) => { const tg = e.target && e.target.tagName; return tg === 'INPUT' || tg === 'TEXTAREA' || tg === 'SELECT'; };
   window.addEventListener('keydown', (e) => {
+    if (typing(e)) return;
     if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') { move(-1); e.preventDefault(); }
     else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { move(1); e.preventDefault(); }
     else if ((e.key === 'Escape' || e.key === 'p') && (state === 'play' || state === 'pause')) togglePause();
@@ -1169,6 +1173,7 @@
     else if (e.key === 'h' || e.key === 'H') { if (!e.repeat) honk(); }
   });
   window.addEventListener('keyup', (e) => {
+    if (typing(e)) return;
     if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') brakeKey = false;
   });
   window.addEventListener('blur', () => { brakeKey = false; brakeBtnDown = false; });
@@ -1391,6 +1396,7 @@
     try {
       const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ action, token: auth && auth.token }, data || {})), signal: ctl ? ctl.signal : undefined });
       const j = await r.json().catch(() => ({ ok: false, error: 'Bad reply from server.' }));
+      j.status = r.status;
       if (r.status === 401 && auth) { auth = null; store.set('flygidi_auth', null); renderAccount(); }
       return j;
     } catch (e) { return { ok: false, error: 'No connection. Check your data and try again.', offline: true }; }
@@ -1415,6 +1421,7 @@
 
   function openSignin() { $('siErr').textContent = ''; show('signin'); $('signin').scrollTop = 0; }
   $('siBack').onclick = () => { renderMenu(); show('start'); };
+  ['siName', 'siPhone'].forEach(id => $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('siGo').click(); } }));
   $('siGo').onclick = async () => {
     const name = $('siName').value.trim(), phone = $('siPhone').value.trim();
     if (name.length < 2) { $('siErr').textContent = 'Username must be at least 2 letters.'; return; }
@@ -1521,8 +1528,8 @@
   // races finished without a connection wait on the phone and post when it is back online
   let queue = store.get('flygidi_queue', []);
   if (!Array.isArray(queue)) queue = [];
-  function queueRace(data) {
-    queue.push(Object.assign({ oid: runOid, route, level, vehicle, played_at: runPlayedAt }, data));
+  function queueRace(data, mine) {
+    queue.push(Object.assign({}, mine, data));
     queue = queue.filter(q => Date.now() - q.played_at < 72 * 3600000).slice(-30);
     store.set('flygidi_queue', queue);
   }
@@ -1533,7 +1540,7 @@
     let posted = 0;
     for (const q of queue.slice()) {
       const j = await api('submit_offline', q);
-      if (j.offline) break; // still no connection; try again later
+      if (j.offline || (j.status >= 500)) break; // no connection or a passing server fault; try again later
       queue = queue.filter(x => x.oid !== q.oid); store.set('flygidi_queue', queue);
       if (j.ok && j.accepted) { posted++; syncStreak(j.streak); }
     }
@@ -1545,10 +1552,11 @@
     if (!auth) { box.hidden = false; box.textContent = 'Sign in from the menu to post your scores to the leaderboard.'; return; }
     box.hidden = false; box.textContent = 'Posting your score...';
     const data = raceData(endKind);
-    const ticket = runTicket ? await runTicket : null;
+    const myTicket = runTicket, mine = { oid: runOid, route, level, vehicle, played_at: runPlayedAt };
+    const ticket = myTicket ? await myTicket : null;
     const j = ticket ? await api('submit', Object.assign({ ticket }, data)) : { ok: false, offline: true };
-    runTicket = null;
-    if (j.offline) { queueRace(data); box.textContent = 'You are offline. This race is saved on your phone and will post to the boards when you reconnect.'; return; }
+    if (runTicket === myTicket) runTicket = null;
+    if (j.offline || (j.status >= 500 && ticket)) { queueRace(data, mine); box.textContent = j.offline ? 'You are offline. This race is saved on your phone and will post to the boards when you reconnect.' : 'The server did not answer. This race is saved on your phone and will post shortly.'; setTimeout(flushQueue, 20000); return; }
     if (!j.ok) { box.textContent = j.error || 'Could not post this race.'; return; }
     if (!j.accepted) { box.textContent = 'This score could not be verified, so it was not added to the boards.'; return; }
     syncStreak(j.streak);

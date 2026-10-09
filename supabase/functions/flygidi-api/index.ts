@@ -154,8 +154,14 @@ async function signIn(body: any) {
   } else {
     const taken = await sql`select 1 from flygidi.players where lower(display_name) = lower(${name})`;
     if (taken.length) return fail("That username is taken. Try another one.");
-    const ins = await sql`insert into flygidi.players (msisdn, display_name, last_seen_at) values (${phone}, ${name}, now()) returning id`;
-    id = ins[0].id;
+    try {
+      const ins = await sql`insert into flygidi.players (msisdn, display_name, last_seen_at) values (${phone}, ${name}, now()) returning id`;
+      id = ins[0].id;
+    } catch (e: any) {
+      // two people claiming the same name or number at the same moment
+      if (e?.code === "23505") return fail("That username or number was just taken. Try again.");
+      throw e;
+    }
   }
   const token = newToken();
   await sql`insert into flygidi.sessions (token_hash, player_id) values (${await sha256(token)}, ${id})`;
