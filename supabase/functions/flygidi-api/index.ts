@@ -306,6 +306,31 @@ async function champions() {
   });
 }
 
+// ---------- who is playing right now ----------
+// Each open game checks in every two minutes with a random device code. A phone counts as online
+// for two and a half minutes after its last check in.
+async function ping(body: any) {
+  const device = String(body.device ?? "");
+  if (!/^[0-9a-f-]{16,64}$/i.test(device)) return fail("Bad device code.");
+  const racing = body.racing === true;
+  const route = racing && ROUTES[body.route] !== undefined ? String(body.route) : null;
+  await sql`
+    insert into flygidi.presence (device_id, racing, route, last_seen) values (${device}, ${racing}, ${route}, now())
+    on conflict (device_id) do update set racing = excluded.racing, route = excluded.route, last_seen = now()`;
+  // now and then, clear out phones not seen for a day
+  if (Math.random() < 0.01) await sql`delete from flygidi.presence where last_seen < now() - interval '1 day'`;
+  return json({ ok: true, live: await liveCounts() });
+}
+async function liveCounts() {
+  const rows = await sql`
+    select route, racing, count(*)::int n from flygidi.presence
+    where last_seen > now() - interval '150 seconds' group by route, racing`;
+  const routes: Record<string, number> = {};
+  let online = 0, racing = 0;
+  for (const r of rows) { online += r.n; if (r.racing) { racing += r.n; if (r.route) routes[r.route] = (routes[r.route] ?? 0) + r.n; } }
+  return { online, racing, routes };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
   if (req.method !== "POST") return fail("Use POST.", 405);
@@ -315,6 +340,7 @@ Deno.serve(async (req) => {
     const action = String(body.action ?? "");
     if (action === "signin") return await signIn(body);
     if (action === "champions") return await champions();
+    if (action === "ping") return await ping(body);
     const p = await playerFromToken(body.token);
     if (action === "board") return await board(p, body);
     if (!p) return fail("Please sign in again.", 401);
