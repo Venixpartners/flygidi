@@ -99,6 +99,7 @@
   .swatches { display: flex; flex-wrap: wrap; gap: 8px; }
   .swatch { width: 40px; height: 40px; border-radius: 50%; border: 3px solid rgba(255,255,255,.35); cursor: pointer; padding: 0; }
   .swatch[aria-pressed="true"] { border-color: #fff; box-shadow: 0 0 0 3px #000, 0 0 0 5px #fff; }
+  .swatch.locked { opacity: .35; border-style: dashed; }
   .legal { margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.2); }
   .legal-links { display: flex; flex-wrap: wrap; gap: 4px 18px; }
   .legal .link { color: #e6e6e6; font-size: 13px; }
@@ -139,6 +140,32 @@
   .missions li b { font-weight: 500; color: #bdbdbd; white-space: nowrap; }
   .missions li.done b { color: #8fd19e; }
   @media (max-height: 620px) { .ctl { width: 56px; height: 56px; } .ctl.brake { width: 62px; height: 62px; } .ctl.small { width: 46px; height: 46px; } .conductor { top: 108px; } }
+  /* streak, tutorial and run summary */
+  .streakbar { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; }
+  .streakbadge { display: inline-flex; align-items: baseline; gap: 6px; background: var(--yellow); color: #000; border-radius: 8px; padding: 4px 10px; font-family: var(--cond); font-weight: 700; font-size: 17px; }
+  .streakbadge b { font-size: 22px; }
+  .streakbar .link { font-size: 13px; color: #e6e6e6; }
+  .bignum { font-family: var(--cond); font-weight: 700; font-size: 96px; line-height: 1; margin: 6px 0 4px; color: var(--yellow); font-variant-numeric: tabular-nums; }
+  .reward { margin: 4px 0 18px; padding: 10px 12px; border-radius: 10px; background: #fff; color: #000; font-size: 14px; line-height: 1.4; }
+  .reward b { font-family: var(--cond); font-size: 18px; display: block; }
+  .ladder { list-style: none; margin: 0 0 20px; padding: 0; }
+  .ladder li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,.14); font-size: 14px; color: #cfcfcf; }
+  .ladder li b { font-family: var(--cond); font-weight: 700; font-size: 16px; color: #fff; white-space: nowrap; }
+  .ladder li.got { color: #8fd19e; } .ladder li.got b { color: #8fd19e; }
+  .tutstep { font-family: var(--cond); font-weight: 700; font-size: 15px; color: #bdbdbd; letter-spacing: .06em; margin: 0 0 6px; }
+  .tuttitle { font-family: var(--cond); font-style: italic; font-weight: 800; font-size: 34px; line-height: 1.05; margin: 0 0 14px; color: var(--yellow); }
+  .tutbody { font-size: 16px; line-height: 1.5; color: #f0f0f0; margin: 0 0 10px; }
+  .tutkeys { font-size: 13px; line-height: 1.5; color: #bdbdbd; margin: 0 0 18px; }
+  .tutpic { width: 100%; max-width: 320px; height: auto; margin: 0 0 16px; display: block; }
+  .dots { display: flex; gap: 6px; margin: 14px 0 0; justify-content: center; }
+  .dots i { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.3); }
+  .dots i.on { background: var(--yellow); }
+  .ptslabel { margin: 0 0 14px; color: #bdbdbd; font-family: var(--cond); font-weight: 600; font-size: 16px; letter-spacing: .04em; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 10px; margin: 6px 0 16px; }
+  .stats div span { display: block; color: #bdbdbd; font-size: 12px; }
+  .stats div b { font-family: var(--cond); font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .overstreak { margin: 0 0 14px; color: #e6e6e6; font-size: 14px; }
+  @media (max-height: 620px) { .bignum { font-size: 72px; } .stats div b { font-size: 20px; } }
   @media (prefers-reduced-motion: reduce) { .toast, .conductor { transition: none; } }
 </style>
 </head>
@@ -175,6 +202,11 @@
   <section class="screen" id="start">
     <img class="logo" alt="FlyGidi" src="data:image/webp;base64,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">
     <p class="tag">Race. Fly. Rank.</p>
+    <div class="streakbar">
+      <span class="streakbadge" id="streakBadge"><b id="streakNum">0</b><span id="streakWord">day streak</span></span>
+      <button class="link" id="streakInfoBtn">Streak rewards</button>
+      <button class="link" id="howBtn">How to play</button>
+    </div>
 
     <p class="label" id="routeLabel">Route</p>
     <div class="routes" role="group" aria-labelledby="routeLabel" id="routeList"></div>
@@ -203,7 +235,7 @@
     <div class="swatches" role="group" aria-labelledby="colorLabel" id="colorList"></div>
     <p class="note" id="colorNote"></p>
 
-    <button class="btn primary" id="startBtn">START RACE</button>
+    <button class="btn primary" id="startBtn">OYA, START RACE</button>
     <div class="foot">
       <p class="how">Tap left or right to change lanes. Hold BRAKE to stop in the yellow bus stop box. HOP or swipe up over potholes. HORN clears your lane.<br>Computer: arrow keys to steer, down to brake, space to hop, H for horn.</p>
       <div class="ctlgroup">
@@ -221,16 +253,37 @@
     </footer>
   </section>
 
+  <section class="screen center" id="streak" hidden>
+    <p class="tutstep" id="streakKicker">WELCOME BACK</p>
+    <p class="bignum" id="streakBig">1</p>
+    <p class="crash" id="streakHead">day streak</p>
+    <p class="tutbody" id="streakText"></p>
+    <div class="reward" id="streakReward" hidden></div>
+    <ul class="ladder" id="streakLadder"></ul>
+    <button class="btn primary" id="streakGo">OYA, MAKE WE GO</button>
+  </section>
+
+  <section class="screen center" id="tut" hidden>
+    <p class="tutstep" id="tutStep">STEP 1 OF 3</p>
+    <canvas class="tutpic" id="tutPic" width="640" height="300" aria-hidden="true"></canvas>
+    <p class="tuttitle" id="tutTitle"></p>
+    <p class="tutbody" id="tutBody"></p>
+    <p class="tutkeys" id="tutKeys"></p>
+    <button class="btn primary" id="tutNext">NEXT</button>
+    <button class="btn ghost" id="tutSkip">SKIP</button>
+    <div class="dots" id="tutDots"><i></i><i></i><i></i></div>
+  </section>
+
   <section class="screen" id="doc" hidden>
     <div class="docbar"><button class="btn ghost" id="docClose" style="margin-top:0">BACK TO MENU</button></div>
     <article class="doc" id="docBody"></article>
   </section>
 
   <section class="screen center" id="paused" hidden>
-    <p class="crash">Paused</p>
+    <p class="crash">Hold on small. Race paused.</p>
     <div class="missions" id="pauseMissions"></div>
-    <button class="btn primary" id="resumeBtn">RESUME</button>
-    <button class="btn ghost" id="quitBtn">END RACE</button>
+    <button class="btn primary" id="resumeBtn">MAKE WE CONTINUE</button>
+    <button class="btn ghost" id="quitBtn">PARK AM, END RACE</button>
   </section>
 
   <section class="screen center" id="over" hidden>
@@ -240,16 +293,23 @@
     <p class="crash" id="crashLine">Danfo no dey look road o.</p>
     <p class="meta" id="overMeta"></p>
     <p class="big" id="finalScore">0</p>
-    <div class="row">
-      <div><span id="finalBestLabel">Best</span><b id="finalBest">0</b></div>
+    <p class="ptslabel">FLY POINTS · <span id="finalBestLabel">Best</span> <span id="finalBest">0</span></p>
+    <div class="stats">
       <div><span>Distance</span><b id="finalDist">0 m</b></div>
-      <div><span>Passed</span><b id="finalPassed">0</b></div>
       <div><span>Passengers</span><b id="finalPax">0</b></div>
       <div><span>Close calls</span><b id="finalNear">0</b></div>
+      <div><span>Stops served</span><b id="finalStops">0</b></div>
+      <div><span>Vehicles passed</span><b id="finalPassed">0</b></div>
+      <div><span>Best combo</span><b id="finalCombo">x1</b></div>
+      <div><span>Mission rank</span><b id="finalRank">1</b></div>
+      <div><span>Multiplier</span><b id="finalMult">x1</b></div>
+      <div><span>Hops</span><b id="finalHops">0</b></div>
     </div>
-    <button class="btn primary" id="againBtn">RACE AGAIN</button>
+    <p class="overstreak" id="overStreak"></p>
+    <div class="missions" id="overMissions"></div>
+    <button class="btn primary" id="againBtn">ONE MORE ROUND</button>
     <button class="btn ghost" id="menuBtn">MAIN MENU</button>
-    <p class="how" style="margin-top:16px">Each route and level will have its own leaderboard in the full portal. For now, beat your own best.</p>
+    <p class="how" style="margin-top:16px">Fly Points are for ranking only. They have no cash value and cannot be exchanged for anything.</p>
   </section>
 </div>
 
@@ -348,12 +408,61 @@
     green:  { label: 'Naija Green', hex: '#1FA463' },
     blue:   { label: 'Lagoon Blue', hex: '#2F7FD1' },
     purple: { label: 'Royal Purple', hex: '#8E44AD' },
-    white:  { label: 'Pearl White', hex: '#F2F2F2' }
+    white:  { label: 'Pearl White', hex: '#F2F2F2' },
+    // earned with a daily streak
+    gold:   { label: 'Eko Gold', hex: '#D4A72C', streak: 'gold' },
+    black:  { label: 'Midnight Black', hex: '#222326', streak: 'black' },
+    chrome: { label: 'Chrome', hex: '#C9CED6', streak: 'chrome' }
   };
+
+  // ---------- daily streak ----------
+  // a day counts once you drive at least 100 m; days follow Lagos time
+  const lagosDay = (d = new Date()) => {
+    try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Lagos', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d); }
+    catch (e) { return new Date(d.getTime() + 3600000).toISOString().slice(0, 10); }
+  };
+  const dayDiff = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000);
+  let streak = store.get('flygidi_streak', null);
+  if (!streak || typeof streak.count !== 'number') streak = { count: 0, last: null, best: 0 };
+  const streakStatus = () => { if (!streak.last) return 'new'; const d = dayDiff(streak.last, lagosDay()); return d <= 0 ? 'today' : d === 1 ? 'alive' : 'broken'; };
+  const liveStreak = () => (streakStatus() === 'broken' ? 0 : streak.count);
+  function countToday() {
+    const st = streakStatus();
+    if (st === 'today') return false;
+    streak.count = st === 'alive' ? streak.count + 1 : 1;
+    streak.last = lagosDay(); streak.best = Math.max(streak.best || 0, streak.count);
+    store.set('flygidi_streak', streak);
+    return true;
+  }
+  const STREAK_REWARDS = [
+    { days: 3, id: 'gold', text: 'Eko Gold paint' },
+    { days: 7, id: 'routepass', text: 'Route pass: opens your next locked route' },
+    { days: 14, id: 'black', text: 'Midnight Black paint' },
+    { days: 30, id: 'chrome', text: 'Chrome finish' }
+  ];
+  let earned = store.get('flygidi_streak_rewards', []);
+  let routePass = store.get('flygidi_route_pass', []);
+  const colorOpen = (id) => !COLORS[id].streak || earned.includes(COLORS[id].streak);
+  function grantRewards() {
+    const fresh = [];
+    for (const r of STREAK_REWARDS) {
+      if (streak.count < r.days || earned.includes(r.id)) continue;
+      earned.push(r.id);
+      let text = r.text;
+      if (r.id === 'routepass') {
+        const next = ROUTE_ORDER.find(id => !isUnlocked(id));
+        if (next) { routePass.push(next); store.set('flygidi_route_pass', routePass); text = 'Route pass: ' + ROUTES[next].name + ' is open'; }
+        else text = 'Route pass saved. All routes are already open';
+      }
+      fresh.push(text);
+    }
+    store.set('flygidi_streak_rewards', earned);
+    return fresh;
+  }
   let route = store.get('flygidi_route', 'tmb'); if (!ROUTES[route]) route = 'tmb';
   let level = store.get('flygidi_level', 'pro'); if (!LEVELS[level]) level = 'pro';
   let vehicle = store.get('flygidi_vehicle', 'danfo'); if (!VEHICLES[vehicle]) vehicle = 'danfo';
-  let color = store.get('flygidi_color', 'yellow'); if (!COLORS[color]) color = 'yellow';
+  let color = store.get('flygidi_color', 'yellow'); if (!COLORS[color] || !colorOpen(color)) color = 'yellow';
   const playerHex = () => COLORS[color].hex;
   let soundOn = store.get('flygidi_sound', true);
   let testerUnlock = store.get('flygidi_tester_unlock', false);
@@ -361,7 +470,7 @@
   const bestKey = (r, l) => 'flygidi_best_' + r + '_' + l;
   const getBest = (r, l) => store.get(bestKey(r, l), 0);
   const bestAny = (r) => Math.max(...Object.keys(LEVELS).map(l => getBest(r, l)));
-  const isUnlocked = (r) => testerUnlock || !ROUTES[r].unlock || bestAny(ROUTES[r].unlock.route) >= ROUTES[r].unlock.score;
+  const isUnlocked = (r) => testerUnlock || routePass.includes(r) || !ROUTES[r].unlock || bestAny(ROUTES[r].unlock.route) >= ROUTES[r].unlock.score;
   // carry over a best score saved before levels existed
   const legacy = store.get('flygidi_best_tmb', null);
   if (legacy !== null && store.get(bestKey('tmb', 'pro'), null) === null) store.set(bestKey('tmb', 'pro'), legacy);
@@ -924,12 +1033,24 @@
         const b = document.createElement('button');
         b.className = 'swatch'; b.dataset.color = id; b.style.background = COLORS[id].hex;
         b.setAttribute('aria-label', COLORS[id].label);
-        b.onclick = () => { color = id; store.set('flygidi_color', id); renderMenu(); };
+        b.onclick = () => {
+          if (!colorOpen(id)) { const r = STREAK_REWARDS.find(x => x.id === COLORS[id].streak); $('colorNote').textContent = COLORS[id].label + ' opens at a ' + r.days + ' day streak.'; return; }
+          color = id; store.set('flygidi_color', id); renderMenu();
+        };
         cl.appendChild(b);
       }
     }
-    cl.querySelectorAll('.swatch').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.color === color)));
+    cl.querySelectorAll('.swatch').forEach(b => {
+      const open = colorOpen(b.dataset.color);
+      b.setAttribute('aria-pressed', String(b.dataset.color === color));
+      b.classList.toggle('locked', !open);
+      b.setAttribute('aria-label', COLORS[b.dataset.color].label + (open ? '' : ', locked'));
+    });
     $('colorNote').textContent = COLORS[color].label;
+    const ls = liveStreak();
+    $('streakNum').textContent = ls;
+    $('streakWord').textContent = 'day streak';
+    $('streakNum').hidden = ls === 0; if (ls === 0) $('streakWord').textContent = 'Start your streak today';
     $('startBtn').disabled = !open;
     $('startBtn').textContent = open ? 'START RACE' : 'ROUTE LOCKED';
     $('soundToggle').textContent = soundOn ? 'Sound on' : 'Sound off';
@@ -961,7 +1082,7 @@
   $('testerBtn').onclick = () => { testerUnlock = true; store.set('flygidi_tester_unlock', true); renderMenu(); };
 
   const show = (id) => {
-    ['start', 'paused', 'over', 'doc'].forEach(s => $(s).hidden = s !== id);
+    ['start', 'paused', 'over', 'doc', 'streak', 'tut'].forEach(s => $(s).hidden = s !== id);
     $('hud').hidden = !(id === null || id === 'paused');
     $('controls').hidden = id !== null; $('trip').hidden = id !== null;
     if (id !== null) $('conductor').classList.remove('show');
@@ -969,6 +1090,7 @@
   let unlockedBefore = [];
   function startGame() {
     if (!isUnlocked(route)) return;
+    if (!store.get('flygidi_tutorial_done', false)) { openTutorial(true); return; }
     Sound.unlock(); Voice.prime();
     unlockedBefore = ROUTE_ORDER.filter(isUnlocked);
     reset(); state = 'play'; show(null); last = performance.now();
@@ -978,6 +1100,77 @@
     if (state === 'play') { state = 'pause'; brakeKey = false; brakeBtnDown = false; renderMissions($('pauseMissions'), true); show('paused'); Sound.engineStop(); Voice.stop(); }
     else if (state === 'pause') { state = 'play'; show(null); last = performance.now(); Sound.unlock(); Sound.engineStart(); }
   }
+  // ---------- streak screen ----------
+  let streakNext = 'start';
+  function openStreak(mode, fresh) {
+    // mode: 'return' when the app opens on a new day, 'run' after the first race of the day, 'info' from the menu
+    streakNext = mode === 'run' ? 'over' : 'start';
+    const st = streakStatus(), n = liveStreak();
+    let kicker = 'DAILY STREAK', big = n, head = n === 1 ? 'day streak' : 'day streak', text = '';
+    if (mode === 'return' && st === 'alive') { kicker = 'WELCOME BACK'; text = 'You raced yesterday. Finish one race today, at least 100 m, to make it ' + (n + 1) + ' days.'; }
+    else if (mode === 'return' && st === 'broken') { kicker = 'WELCOME BACK'; big = 0; head = 'streak don cut'; text = 'Your ' + streak.count + ' day streak ended. Wetin happen? Race today and start a new one. The rewards you earned stay with you.'; }
+    else if (mode === 'run') { kicker = 'TODAY DON COUNT'; text = n === 1 ? 'Day one. Come back tomorrow to keep it going.' : 'Correct! ' + n + ' days in a row. Come back tomorrow for day ' + (n + 1) + '.'; }
+    else { text = n ? 'Race at least 100 m every day to grow your streak. Miss a day and it starts again.' : 'Race at least 100 m every day to build a streak. Miss a day and it starts again.'; }
+    $('streakKicker').textContent = kicker; $('streakBig').textContent = big; $('streakHead').textContent = head; $('streakText').textContent = text;
+    const rw = $('streakReward');
+    if (fresh && fresh.length) { rw.innerHTML = '<b>New reward</b>' + fresh.map(t => '<div></div>').join(''); rw.querySelectorAll('div').forEach((d, i) => d.textContent = fresh[i]); rw.hidden = false; Sound.unlockRoute(); }
+    else rw.hidden = true;
+    $('streakLadder').innerHTML = STREAK_REWARDS.map(r => '<li class="' + (earned.includes(r.id) ? 'got' : '') + '"><span></span><b>' + r.days + ' days</b></li>').join('');
+    $('streakLadder').querySelectorAll('li span').forEach((sp, i) => sp.textContent = STREAK_REWARDS[i].text + (earned.includes(STREAK_REWARDS[i].id) ? ' (earned)' : ''));
+    $('streakGo').textContent = mode === 'run' ? 'SEE MY RESULT' : mode === 'info' ? 'BACK TO MENU' : 'OYA, MAKE WE GO';
+    show('streak'); $('streak').scrollTop = 0;
+  }
+  $('streakGo').onclick = () => { if (streakNext === 'over') { show('over'); $('over').scrollTop = 0; } else { renderMenu(); show('start'); } };
+  $('streakInfoBtn').onclick = () => openStreak('info');
+
+  // ---------- first play tutorial ----------
+  const TUT = [
+    { title: 'Drive the road', body: 'Tap the left or right side of the screen to change lanes, or swipe. Dodge danfos, okadas, kekes and buses. The longer you drive, the more Fly Points you collect.', keys: 'Computer: left and right arrow keys.' },
+    { title: 'Carry passengers', body: 'Bus stops show up on the right lane. Keep right, hold BRAKE and stop inside the yellow box. Passengers enter, and you drop them at their stop for bonus points. Pass their stop and the combo don cut.', keys: 'Computer: hold the down arrow to brake.' },
+    { title: 'Drive like a pro', body: 'HOP over potholes and closed toll gates. HORN pushes cars out of your lane. Pass close for bonus points, stay fast for x1.5, and finish missions to raise your multiplier.', keys: 'Computer: space to hop, H for horn, P to pause.' }
+  ];
+  let tutI = 0, tutThenPlay = false;
+  function drawTutPic(i) {
+    const c = $('tutPic'), g = c.getContext('2d'), w = c.width, h = c.height, L = w * 0.16, rx = (w - L * 4) / 2;
+    g.clearRect(0, 0, w, h);
+    g.fillStyle = '#2B2B2B'; g.fillRect(rx, 0, L * 4, h);
+    g.fillStyle = 'rgba(255,255,255,0.8)'; for (let k = 1; k < 4; k++) for (let y = 10; y < h; y += 50) g.fillRect(rx + L * k - 2, y, 4, 26);
+    g.fillStyle = '#FAC206'; g.fillRect(rx + 4, 0, 3, h); g.fillRect(rx + L * 4 - 7, 0, 3, h);
+    const van = (x, y, col) => { g.fillStyle = col; g.fillRect(x - L * 0.3, y, L * 0.6, L * 1.15); g.strokeStyle = '#000'; g.lineWidth = 3; g.strokeRect(x - L * 0.3, y, L * 0.6, L * 1.15); g.fillStyle = '#000'; g.fillRect(x - L * 0.24, y + L * 0.14, L * 0.48, L * 0.16); };
+    const lx = (k) => rx + L * (k + 0.5);
+    g.font = '700 30px "Barlow Condensed", Arial'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    if (i === 0) {
+      van(lx(1), h - L * 1.5, '#FAC206'); van(lx(2), 30, '#C8CCD2');
+      g.fillStyle = '#fff'; g.fillText('TAP', rx - 54, h / 2); g.fillText('TAP', rx + L * 4 + 54, h / 2);
+      g.strokeStyle = '#FAC206'; g.lineWidth = 5; g.beginPath(); g.moveTo(lx(1) - L * 0.5, h - L * 0.9); g.lineTo(lx(0) + 6, h - L * 0.9); g.lineTo(lx(0) + 22, h - L * 0.9 - 14); g.stroke();
+    } else if (i === 1) {
+      const bx = lx(3); g.fillStyle = 'rgba(250,194,6,0.22)'; g.fillRect(bx - L * 0.48, 40, L * 0.96, L * 1.5);
+      g.strokeStyle = '#FAC206'; g.lineWidth = 4; g.setLineDash && g.setLineDash([12, 8]); g.strokeRect(bx - L * 0.48, 40, L * 0.96, L * 1.5); g.setLineDash && g.setLineDash([]);
+      g.fillStyle = '#FAC206'; g.font = '700 22px "Barlow Condensed", Arial'; g.fillText('BUS', bx, 40 + L * 0.6); g.fillText('STOP', bx, 40 + L * 0.92);
+      van(bx, h - L * 1.3, '#FAC206');
+      g.fillStyle = '#E0322B'; g.beginPath(); g.arc(rx - 60, h - 60, 44, 0, Math.PI * 2); g.fill(); g.fillStyle = '#fff'; g.font = '700 22px "Barlow Condensed", Arial'; g.fillText('BRAKE', rx - 60, h - 60);
+    } else {
+      g.fillStyle = '#161616'; g.beginPath(); g.ellipse(lx(1), 90, L * 0.3, L * 0.18, 0, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#FAC206'; g.lineWidth = 5; g.beginPath(); g.moveTo(lx(1), h - L * 0.4); g.quadraticCurveTo(lx(1) + L * 0.9, 90, lx(1), 20); g.stroke();
+      van(lx(1), h - L * 1.4, '#FAC206'); van(lx(2), h - L * 2.2, '#C8CCD2');
+      g.fillStyle = '#fff'; g.font = '700 26px "Barlow Condensed", Arial'; g.fillText('HOP', lx(1) + L * 1.1, 120); g.fillText('CLOSE CALL', lx(3) + 10, h - L * 1.6);
+    }
+  }
+  function renderTut() {
+    const step = TUT[tutI];
+    $('tutStep').textContent = 'STEP ' + (tutI + 1) + ' OF ' + TUT.length;
+    $('tutTitle').textContent = step.title; $('tutBody').textContent = step.body; $('tutKeys').textContent = step.keys;
+    $('tutNext').textContent = tutI < TUT.length - 1 ? 'NEXT' : (tutThenPlay ? 'OYA, DRIVE!' : 'GOT IT');
+    $('tutSkip').hidden = tutI === TUT.length - 1;
+    $('tutDots').querySelectorAll('i').forEach((d, k) => d.classList.toggle('on', k === tutI));
+    drawTutPic(tutI);
+  }
+  function openTutorial(thenPlay) { tutI = 0; tutThenPlay = thenPlay; renderTut(); show('tut'); $('tut').scrollTop = 0; }
+  function closeTutorial() { store.set('flygidi_tutorial_done', true); if (tutThenPlay) startGame(); else { renderMenu(); show('start'); } }
+  $('tutNext').onclick = () => { if (tutI < TUT.length - 1) { tutI++; renderTut(); } else closeTutorial(); };
+  $('tutSkip').onclick = closeTutorial;
+  $('howBtn').onclick = () => openTutorial(false);
+
   $('startBtn').onclick = startGame;
   $('againBtn').onclick = startGame;
   $('pauseBtn').onclick = togglePause;
@@ -1034,7 +1227,7 @@
     convoy: ['Siren no be music. Clear road next time.', 'Convoy no dey wait for anybody.'],
     pothole: ['Pothole don throw you comot.', 'Powerbike and pothole no be friends.'],
     works: ['Road works no be shortcut.', 'Those cones dey there for a reason.'],
-    quit: ['Race ended. The road will wait for you.']
+    quit: ['You don park. Road go still dey wait for you.', 'Race ended. Rest small, then come back.']
   };
   function crash(o, quit) {
     state = 'over';
@@ -1058,10 +1251,21 @@
     $('finalPassed').textContent = passed;
     $('finalPax').textContent = run.pax;
     $('finalNear').textContent = run.near;
+    $('finalStops').textContent = run.stopsServed;
+    $('finalCombo').textContent = 'x' + run.combo;
+    $('finalRank').textContent = LEVELS[level].label + ' ' + (Math.min(mState.rank, MISSION_RANKS.length - 1) + 1);
+    $('finalMult').textContent = fmtMult(mMult);
+    $('finalHops').textContent = run.hops;
+    renderMissions($('overMissions'), true);
+    // the first race of the day that reaches 100 m counts towards the streak
+    const counted = run.meters >= 100 && countToday();
+    const fresh = counted ? grantRewards() : [];
+    const ls = liveStreak();
+    $('overStreak').textContent = streakStatus() === 'today' ? 'Streak: ' + ls + (ls === 1 ? ' day' : ' days') + '. Today don count. Come back tomorrow.' : 'Drive at least 100 m to count today for your streak.';
     if (runMissionsDone.length) { $('missionMsg').textContent = runMissionsDone.length === 1 ? 'Mission done: ' + runMissionsDone[0] : runMissionsDone.join(' · '); $('missionMsg').hidden = false; }
     else $('missionMsg').hidden = true;
     shake = quit ? 0 : 14;
-    setTimeout(() => { show('over'); $('over').scrollTop = 0; }, quit ? 0 : 450);
+    setTimeout(() => { if (counted) openStreak('run', fresh); else { show('over'); $('over').scrollTop = 0; } }, quit ? 0 : 450);
   }
 
   let toastTimer;
@@ -1815,6 +2019,10 @@
   resize(); reset(); resize();
   renderMenu();
   show('start');
+  // greet a returning player once per day
+  if (streak.count > 0 && store.get('flygidi_streak_seen', '') !== lagosDay() && (streakStatus() === 'alive' || (streakStatus() === 'broken' && streak.count > 1))) {
+    store.set('flygidi_streak_seen', lagosDay()); openStreak('return');
+  }
   requestAnimationFrame(frame);
 })();
 </script>
