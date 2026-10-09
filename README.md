@@ -19,12 +19,16 @@ The game is a single self contained page, `index.html`, with no build step. It r
 
 ## Backend
 
-Supabase project `ejiji`, schema `flygidi`: players, subscriptions, billing events, runs, and weekly and monthly leaderboard views. Only the game server can read or write these tables.
+Supabase project `ejiji`, schema `flygidi`: players, sessions, run tickets, runs, badges, weekly champions, subscriptions and billing events. The tables are closed to the public API; only the game server reads or writes them.
+
+The game server is the edge function `flygidi-api`, kept in `supabase/functions/flygidi-api`. It handles sign in, race tickets, score checks, the Today, Week and All time boards for every route and level, weekly champions and the hall of fame, badges and titles, and the daily streak. Each race gets a ticket when it starts, and the server rejects any score that is faster, longer or higher than the race could physically produce. Rejected scores are kept, flagged with a reason, and left off the boards.
+
+Leaderboards show usernames only. Phone numbers are never shown to other players.
 
 ## Roadmap
 
 1. Game prototype and routes (done)
-2. Backend on Supabase: phone number sign in, server checked scores, leaderboards per route and level
+2. Backend on Supabase: phone number sign in, server checked scores, leaderboards per route and level (done)
 3. Portal pages, subscription access checks and admin dashboard
 4. Aggregator integration for opt in, renewal and opt out on 7996
 

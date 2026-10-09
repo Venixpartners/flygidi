@@ -166,6 +166,36 @@
   .stats div b { font-family: var(--cond); font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .overstreak { margin: 0 0 14px; color: #e6e6e6; font-size: 14px; }
   @media (max-height: 620px) { .bignum { font-size: 72px; } .stats div b { font-size: 20px; } }
+  /* account, leaderboards and profile */
+  .acct { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 8px; }
+  .acctnote { margin: 0 0 16px; color: #cfcfcf; font-size: 13px; }
+  .field { display: block; margin: 0 0 14px; }
+  .field span { display: block; font-family: var(--cond); font-weight: 700; font-size: 17px; margin: 0 0 6px; }
+  .field input { width: 100%; min-height: 50px; border-radius: 10px; border: 2px solid #fff; background: #000; color: #fff; font: 500 18px "Barlow", Arial, sans-serif; padding: 0 14px; -webkit-user-select: text; user-select: text; }
+  .field input:focus { outline: none; border-color: var(--yellow); }
+  .err { color: #ff8a80; font-size: 14px; min-height: 1.4em; margin: 0 0 10px; }
+  .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0 0 12px; }
+  .tabs .opt { font-size: 15px; min-height: 40px; }
+  .sel { width: 100%; min-height: 46px; border-radius: 10px; border: 2px solid #fff; background: #000; color: #fff; font: 700 17px var(--cond); padding: 0 10px; margin: 0 0 8px; }
+  .board { list-style: none; margin: 4px 0 12px; padding: 0; }
+  .board li { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 8px; padding: 9px 4px; border-bottom: 1px solid rgba(255,255,255,.14); }
+  .board li .pos { font-family: var(--cond); font-weight: 700; font-size: 20px; color: #bdbdbd; text-align: center; }
+  .board li:nth-child(-n+3) .pos { color: var(--yellow); }
+  .board li .who b { display: block; font-weight: 500; font-size: 15px; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .board li .who small { display: block; font-size: 12px; color: #9a9a9a; }
+  .board li .pts { font-family: var(--cond); font-weight: 700; font-size: 20px; font-variant-numeric: tabular-nums; }
+  .board li.me { background: rgba(250,194,6,.16); border-radius: 8px; }
+  .board .empty { display: block; color: #cfcfcf; font-size: 14px; border: 0; padding: 14px 0; }
+  .myrank { margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; background: #fff; color: #000; font-size: 15px; }
+  .h3 { font-family: var(--cond); font-weight: 700; font-size: 20px; margin: 14px 0 4px; }
+  .badges { list-style: none; margin: 4px 0 16px; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .badges li button { width: 100%; text-align: left; border-radius: 10px; border: 2px solid rgba(255,255,255,.25); background: transparent; color: #8a8a8a; padding: 8px 10px; min-height: 64px; cursor: default; }
+  .badges li button b { display: block; font-family: var(--cond); font-weight: 700; font-size: 16px; }
+  .badges li button small { display: block; font-size: 12px; }
+  .badges li.got button { border-color: #fff; color: #fff; cursor: pointer; }
+  .badges li.cur button { background: var(--yellow); border-color: var(--yellow); color: #000; }
+  .postmsg { margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.3); font-size: 14px; color: #e6e6e6; }
+  .postmsg b { color: var(--yellow); }
   @media (prefers-reduced-motion: reduce) { .toast, .conductor { transition: none; } }
 </style>
 </head>
@@ -207,6 +237,12 @@
       <button class="link" id="streakInfoBtn">Streak rewards</button>
       <button class="link" id="howBtn">How to play</button>
     </div>
+
+    <div class="acct">
+      <button class="opt" id="boardBtn">Leaderboard</button>
+      <button class="opt" id="acctBtn">Sign in</button>
+    </div>
+    <p class="acctnote" id="acctNote">Sign in with your username to post scores and climb the boards.</p>
 
     <p class="label" id="routeLabel">Route</p>
     <div class="routes" role="group" aria-labelledby="routeLabel" id="routeList"></div>
@@ -274,6 +310,50 @@
     <div class="dots" id="tutDots"><i></i><i></i><i></i></div>
   </section>
 
+  <section class="screen" id="signin" hidden>
+    <p class="crash">Enter the leaderboard</p>
+    <p class="tutbody">Pick a username for the boards and enter the phone number you subscribe with. Only your username is ever shown to other players. Your number stays private.</p>
+    <label class="field"><span>Username</span><input id="siName" maxlength="24" autocomplete="nickname" autocapitalize="off" spellcheck="false" placeholder="e.g. GidiDriver"></label>
+    <label class="field"><span>Phone number</span><input id="siPhone" type="tel" inputmode="tel" maxlength="16" autocomplete="tel" placeholder="0803 123 4567"></label>
+    <p class="err" id="siErr" aria-live="polite"></p>
+    <button class="btn primary" id="siGo">SIGN IN</button>
+    <button class="btn ghost" id="siBack">BACK</button>
+    <p class="how" style="margin-top:14px">Returning player? Use the same username and number as before.</p>
+  </section>
+
+  <section class="screen" id="board" hidden>
+    <div class="docbar"><button class="btn ghost" id="bdBack" style="margin-top:0">BACK TO MENU</button></div>
+    <p class="crash" style="margin-bottom:10px">Leaderboard</p>
+    <div class="tabs" role="group" aria-label="Board period">
+      <button class="opt" data-period="day">Today</button>
+      <button class="opt" data-period="week">Week</button>
+      <button class="opt" data-period="all">All time</button>
+      <button class="opt" data-period="champs">Champs</button>
+    </div>
+    <div id="bdFilters">
+      <select class="sel" id="bdRoute" aria-label="Route"></select>
+      <div class="seg three" role="group" aria-label="Level" style="margin-bottom:10px">
+        <button class="opt" data-blevel="novice">Novice</button>
+        <button class="opt" data-blevel="pro">Pro</button>
+        <button class="opt" data-blevel="expert">Expert</button>
+      </div>
+    </div>
+    <div class="myrank" id="bdMe" hidden></div>
+    <div id="bdBody"></div>
+  </section>
+
+  <section class="screen" id="profile" hidden>
+    <div class="docbar"><button class="btn ghost" id="pfBack" style="margin-top:0">BACK TO MENU</button></div>
+    <p class="tutstep">YOUR PROFILE</p>
+    <p class="crash" id="pfName" style="margin-bottom:4px"></p>
+    <p class="meta" id="pfTitle"></p>
+    <div class="stats" id="pfStats"></div>
+    <p class="h3">Badges and titles</p>
+    <p class="how">Earn badges by playing. Tap an earned badge to show it as your title on the boards.</p>
+    <ul class="badges" id="pfBadges"></ul>
+    <button class="btn ghost" id="pfOut">SIGN OUT</button>
+  </section>
+
   <section class="screen" id="doc" hidden>
     <div class="docbar"><button class="btn ghost" id="docClose" style="margin-top:0">BACK TO MENU</button></div>
     <article class="doc" id="docBody"></article>
@@ -306,6 +386,7 @@
       <div><span>Hops</span><b id="finalHops">0</b></div>
     </div>
     <p class="overstreak" id="overStreak"></p>
+    <div class="postmsg" id="postMsg" hidden></div>
     <div class="missions" id="overMissions"></div>
     <button class="btn primary" id="againBtn">ONE MORE ROUND</button>
     <button class="btn ghost" id="menuBtn">MAIN MENU</button>
@@ -1116,7 +1197,7 @@
   $('testerBtn').onclick = () => { testerUnlock = true; store.set('flygidi_tester_unlock', true); renderMenu(); };
 
   const show = (id) => {
-    ['start', 'paused', 'over', 'doc', 'streak', 'tut'].forEach(s => $(s).hidden = s !== id);
+    ['start', 'paused', 'over', 'doc', 'streak', 'tut', 'signin', 'board', 'profile'].forEach(s => $(s).hidden = s !== id);
     $('hud').hidden = !(id === null || id === 'paused');
     $('controls').hidden = id !== null; $('trip').hidden = id !== null;
     if (id !== null) $('conductor').classList.remove('show');
@@ -1129,6 +1210,7 @@
     Voice.warm(['next_stop', 'missed_1', 'missed_2', 'missed_3'].concat(STOPS[route].map(n => 'stop_' + slug(n))));
     unlockedBefore = ROUTE_ORDER.filter(isUnlocked);
     reset(); state = 'play'; show(null); last = performance.now();
+    requestTicket();
     Sound.horn(); Sound.engineStart();
   }
   function togglePause() {
@@ -1205,6 +1287,160 @@
   $('tutNext').onclick = () => { if (tutI < TUT.length - 1) { tutI++; renderTut(); } else closeTutorial(); };
   $('tutSkip').onclick = closeTutorial;
   $('howBtn').onclick = () => openTutorial(false);
+
+  // ---------- online: account, leaderboards, profile ----------
+  const API = 'https://rjllbjnriawxavkpskkv.supabase.co/functions/v1/flygidi-api';
+  const CLIENT_V = 's3';
+  let auth = store.get('flygidi_auth', null);
+  if (!auth || !auth.token) auth = null;
+  async function api(action, data) {
+    const ctl = window.AbortController ? new AbortController() : null;
+    const timer = ctl ? setTimeout(() => ctl.abort(), 12000) : null;
+    try {
+      const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ action, token: auth && auth.token }, data || {})), signal: ctl ? ctl.signal : undefined });
+      const j = await r.json().catch(() => ({ ok: false, error: 'Bad reply from server.' }));
+      if (r.status === 401 && auth) { auth = null; store.set('flygidi_auth', null); renderAccount(); }
+      return j;
+    } catch (e) { return { ok: false, error: 'No connection. Check your data and try again.', offline: true }; }
+    finally { if (timer) clearTimeout(timer); }
+  }
+  function syncStreak(st) {
+    // the server keeps the real streak once a player signs in
+    if (!st || !st.last) return;
+    streak = { count: st.count, last: st.last, best: Math.max(st.best || 0, streak.best || 0) };
+    store.set('flygidi_streak', streak);
+  }
+  function setProfile(pr) {
+    if (!auth || !pr) return;
+    auth.profile = pr; store.set('flygidi_auth', auth);
+    syncStreak(pr.streak); renderAccount();
+  }
+  function renderAccount() {
+    $('acctBtn').textContent = auth ? 'Profile' : 'Sign in';
+    $('acctNote').textContent = auth && auth.profile ? 'Signed in as ' + auth.profile.name + (auth.profile.title ? ' · ' + auth.profile.title : '') + '. Your scores post to the boards.' : 'Sign in with your username to post scores and climb the boards.';
+  }
+  $('acctBtn').onclick = () => { if (auth) openProfile(); else openSignin(); };
+
+  function openSignin() { $('siErr').textContent = ''; show('signin'); $('signin').scrollTop = 0; }
+  $('siBack').onclick = () => { renderMenu(); show('start'); };
+  $('siGo').onclick = async () => {
+    const name = $('siName').value.trim(), phone = $('siPhone').value.trim();
+    if (name.length < 2) { $('siErr').textContent = 'Username must be at least 2 letters.'; return; }
+    if (phone.replace(/\D/g, '').length < 10) { $('siErr').textContent = 'Enter your full phone number.'; return; }
+    $('siGo').disabled = true; $('siGo').textContent = 'SIGNING IN...';
+    const j = await api('signin', { name, phone });
+    $('siGo').disabled = false; $('siGo').textContent = 'SIGN IN';
+    if (!j.ok) { $('siErr').textContent = j.error || 'Could not sign in.'; return; }
+    auth = { token: j.token, profile: j.profile }; store.set('flygidi_auth', auth);
+    syncStreak(j.profile.streak); renderAccount(); renderMenu(); show('start'); toast('Welcome, ' + j.profile.name);
+  };
+
+  // leaderboard
+  let bd = { period: 'day', route: route, level: level };
+  const PERIOD_WORD = { day: 'today', week: 'this week', all: 'of all time' };
+  const rowEl = (pos, name, sub, pts, me) => {
+    const li = document.createElement('li'); if (me) li.className = 'me';
+    li.innerHTML = '<span class="pos"></span><span class="who"><b></b><small></small></span><span class="pts"></span>';
+    li.querySelector('.pos').textContent = pos; li.querySelector('b').textContent = name; li.querySelector('small').textContent = sub || ''; li.querySelector('.pts').textContent = pts;
+    return li;
+  };
+  function openBoard() {
+    bd.route = route; bd.level = level;
+    const sel = $('bdRoute');
+    if (!sel.options.length) for (const id of ROUTE_ORDER) { const o = document.createElement('option'); o.value = id; o.textContent = ROUTES[id].name; sel.appendChild(o); }
+    show('board'); $('board').scrollTop = 0; loadBoard();
+  }
+  async function loadBoard() {
+    document.querySelectorAll('[data-period]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.period === bd.period)));
+    document.querySelectorAll('[data-blevel]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.blevel === bd.level)));
+    $('bdRoute').value = bd.route;
+    const champs = bd.period === 'champs';
+    $('bdFilters').hidden = champs;
+    const body = $('bdBody'); body.innerHTML = '<p class="how">Loading...</p>'; $('bdMe').hidden = true;
+    const want = JSON.stringify(bd);
+    const j = champs ? await api('champions') : await api('board', { route: bd.route, level: bd.level, period: bd.period });
+    if (JSON.stringify(bd) !== want) return; // the player changed tabs while this loaded
+    body.innerHTML = '';
+    if (!j.ok) { body.innerHTML = '<p class="err"></p>'; body.firstChild.textContent = j.error || 'Could not load the board.'; return; }
+    if (champs) {
+      const h = document.createElement('p'); h.className = 'h3'; h.textContent = j.week ? 'Weekly champions, week of ' + new Date(j.week + 'T12:00:00Z').toLocaleDateString('en-NG', { day: 'numeric', month: 'long' }) : 'Weekly champions'; body.appendChild(h);
+      const ul = document.createElement('ul'); ul.className = 'board'; body.appendChild(ul);
+      if (!j.champions.length) ul.innerHTML = '<li class="empty">No champions yet. The first ones are crowned after this week ends, every Monday.</li>';
+      for (const c of j.champions) ul.appendChild(rowEl('1', c.name, (ROUTES[c.route] ? ROUTES[c.route].name : c.route) + ', ' + (LEVELS[c.level] ? LEVELS[c.level].label : c.level) + (c.title ? ' · ' + c.title : ''), fmt(c.score)));
+      const h2 = document.createElement('p'); h2.className = 'h3'; h2.textContent = 'Hall of fame'; body.appendChild(h2);
+      const ul2 = document.createElement('ul'); ul2.className = 'board'; body.appendChild(ul2);
+      if (!j.hall.length) ul2.innerHTML = '<li class="empty">Every weekly champion lands here.</li>';
+      j.hall.forEach((x, i) => ul2.appendChild(rowEl(i + 1, x.name, x.title || '', x.wins + (x.wins === 1 ? ' win' : ' wins'))));
+      return;
+    }
+    if (j.me) { $('bdMe').hidden = false; $('bdMe').textContent = 'You are #' + j.me.pos + ' ' + PERIOD_WORD[bd.period] + ' with ' + fmt(j.me.score) + ' Fly Points.'; }
+    else if (!auth) { $('bdMe').hidden = false; $('bdMe').textContent = 'Sign in from the menu to get your name on this board.'; }
+    const ul = document.createElement('ul'); ul.className = 'board'; body.appendChild(ul);
+    if (!j.rows.length) ul.innerHTML = '<li class="empty">No scores yet ' + PERIOD_WORD[bd.period] + '. Oya, be the first!</li>';
+    for (const r of j.rows) ul.appendChild(rowEl(r.pos, r.name, [r.title, VEHICLES[r.vehicle] ? VEHICLES[r.vehicle].label : ''].filter(Boolean).join(' · '), fmt(r.score), r.me));
+  }
+  document.querySelectorAll('[data-period]').forEach(b => b.onclick = () => { bd.period = b.dataset.period; loadBoard(); });
+  document.querySelectorAll('[data-blevel]').forEach(b => b.onclick = () => { bd.level = b.dataset.blevel; loadBoard(); });
+  $('bdRoute').onchange = () => { bd.route = $('bdRoute').value; loadBoard(); };
+  $('boardBtn').onclick = openBoard;
+  $('bdBack').onclick = () => { renderMenu(); show('start'); };
+
+  // profile
+  function renderProfile(pr) {
+    $('pfName').textContent = pr.name;
+    $('pfTitle').textContent = pr.title ? 'Title: ' + pr.title : 'Earn a badge to unlock your first title.';
+    const t = pr.totals || {};
+    const cells = [['Races', fmt(t.runs || 0)], ['Distance', fmt((t.meters || 0) / 1000) + ' km'], ['Passengers', fmt(t.pax || 0)],
+      ['Close calls', fmt(t.near || 0)], ['Streak', (pr.streak && pr.streak.count) || 0], ['Weekly wins', pr.wins || 0]];
+    $('pfStats').innerHTML = cells.map(() => '<div><span></span><b></b></div>').join('');
+    $('pfStats').querySelectorAll('div').forEach((d, i) => { d.querySelector('span').textContent = cells[i][0]; d.querySelector('b').textContent = cells[i][1]; });
+    const ul = $('pfBadges'); ul.innerHTML = '';
+    for (const b of pr.badges) {
+      const li = document.createElement('li'); li.className = (b.earned ? 'got' : '') + (pr.titleId === b.id ? ' cur' : '');
+      li.innerHTML = '<button><b></b><small></small></button>';
+      li.querySelector('b').textContent = b.title; li.querySelector('small').textContent = b.earned ? (pr.titleId === b.id ? 'Your title' : 'Tap to use as title') : b.desc;
+      const btn = li.querySelector('button');
+      if (!b.earned) btn.disabled = true;
+      else btn.onclick = async () => { const j = await api('title', { title: b.id }); if (j.ok) { const m = await api('me'); if (m.ok) { setProfile(m.profile); renderProfile(m.profile); } } else toast(j.error || 'Try again'); };
+      ul.appendChild(li);
+    }
+  }
+  async function openProfile() {
+    if (auth && auth.profile) renderProfile(auth.profile);
+    show('profile'); $('profile').scrollTop = 0;
+    const j = await api('me'); if (j.ok) { setProfile(j.profile); renderProfile(j.profile); }
+  }
+  $('pfBack').onclick = () => { renderMenu(); show('start'); };
+  $('pfOut').onclick = async () => { await api('signout'); auth = null; store.set('flygidi_auth', null); renderAccount(); renderMenu(); show('start'); };
+
+  // race tickets and score posting
+  let runTicket = null;
+  function requestTicket() {
+    runTicket = null;
+    if (!auth) return;
+    runTicket = api('start', { route, level, vehicle }).then(j => (j.ok ? j.ticket : null));
+  }
+  async function postRun(endKind) {
+    const box = $('postMsg');
+    if (!auth) { box.hidden = false; box.textContent = 'Sign in from the menu to post your scores to the leaderboard.'; return; }
+    box.hidden = false; box.textContent = 'Posting your score...';
+    const ticket = runTicket ? await runTicket : null;
+    if (!ticket) { box.textContent = 'This race could not be posted because the game was offline when it started.'; return; }
+    const j = await api('submit', {
+      ticket, score: Math.floor(score), meters: run.meters, passed, pax: run.pax, near: run.near, stops: run.stopsServed, hops: run.hops,
+      combo: run.combo, mult: mMult, rank: Math.min(mState.rank, MISSION_RANKS.length - 1) + 1, duration_ms: Math.round(t * 1000),
+      end: endKind, color, v: CLIENT_V
+    });
+    runTicket = null;
+    if (!j.ok) { box.textContent = j.error || 'Could not post this race.'; return; }
+    if (!j.accepted) { box.textContent = 'This score could not be verified, so it was not added to the boards.'; return; }
+    syncStreak(j.streak);
+    box.innerHTML = '<b></b><span></span>';
+    box.querySelector('b').textContent = 'Posted. #' + j.dayRank + ' today';
+    box.querySelector('span').textContent = ' on ' + ROUTES[route].name + ', ' + LEVELS[level].label + '.' + (j.newBadges && j.newBadges.length ? ' New badge: ' + j.newBadges.map(b => b.title).join(', ') + '.' : '');
+  }
+  if (auth) api('me').then(j => { if (j.ok) setProfile(j.profile); });
+  renderAccount();
 
   $('startBtn').onclick = startGame;
   $('againBtn').onclick = startGame;
@@ -1293,6 +1529,7 @@
     $('finalHops').textContent = run.hops;
     renderMissions($('overMissions'), true);
     // the first race of the day that reaches 100 m counts towards the streak
+    postRun(quit ? 'quit' : o.kind);
     const counted = run.meters >= 100 && countToday();
     const fresh = counted ? grantRewards() : [];
     const ls = liveStreak();
