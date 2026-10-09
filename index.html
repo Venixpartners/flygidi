@@ -110,7 +110,36 @@
   .doc ul { padding-left: 20px; }
   .doc .updated { color: #9a9a9a; font-size: 13px; margin-bottom: 14px; }
   .docbar { position: sticky; top: -24px; margin: -24px -20px 12px; padding: 14px 20px; background: #000; z-index: 1; }
-  @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+  /* in race panels: next stop, seats, speed badge */
+  .trip[hidden], .controls[hidden], .conductor[hidden], .fast[hidden] { display: none; }
+  .trip { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); width: min(220px, 52%); text-align: center; pointer-events: none; background: rgba(0,0,0,.6); border-radius: 10px; padding: 6px 10px; }
+  .trip b { display: block; font-family: var(--cond); font-weight: 700; font-size: 16px; line-height: 1.1; color: var(--yellow); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .trip span { display: block; font-size: 12px; color: #fff; margin-top: 2px; white-space: nowrap; }
+  .seats { margin-top: 6px; font-family: var(--cond); font-weight: 600; font-size: 15px; color: #fff; text-shadow: 0 1px 0 rgba(0,0,0,.7); }
+  .fast { display: inline-block; margin: 6px 0 0 6px; background: #fff; color: #000; font-family: var(--cond); font-weight: 700; font-size: 15px; padding: 3px 7px; border-radius: 6px; vertical-align: top; }
+  .conductor { position: absolute; left: 50%; top: 132px; transform: translateX(-50%); width: min(280px, 72%); background: #fff; color: #000; border-radius: 10px; padding: 5px 10px; font-family: var(--cond); font-weight: 700; font-size: 15px; line-height: 1.15; text-align: center; pointer-events: none; opacity: 0; transition: opacity .2s; }
+  .conductor small { display: block; font-family: "Barlow", Arial, sans-serif; font-weight: 500; font-size: 10px; color: #555; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 1px; }
+  .conductor.show { opacity: 1; }
+  .controls { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 10px 14px; pointer-events: none; }
+  .ctlgroup { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .ctl { pointer-events: auto; position: relative; width: 66px; height: 66px; border-radius: 50%; border: 2px solid rgba(255,255,255,.9); background: rgba(0,0,0,.55); color: #fff; font-family: var(--cond); font-weight: 700; font-size: 16px; letter-spacing: .03em; cursor: pointer; touch-action: none; -webkit-user-select: none; user-select: none; overflow: hidden; }
+  .ctl.small { width: 52px; height: 52px; font-size: 13px; }
+  .ctl.brake { width: 74px; height: 74px; border-color: var(--red); }
+  .ctl.brake.on { background: var(--red); }
+  .ctl.brake.cue:not(.on) { box-shadow: 0 0 0 4px var(--yellow); }
+  .ctl .cd { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: rgba(255,255,255,.28); pointer-events: none; }
+  .ctl.cooling { color: #9a9a9a; }
+  .ctl span { position: relative; }
+  .speedo { font-family: var(--cond); font-weight: 700; font-size: 15px; color: #fff; text-shadow: 0 1px 0 #000; font-variant-numeric: tabular-nums; }
+  .missions { margin: 0 0 16px; padding: 10px 12px; border: 1px solid rgba(255,255,255,.3); border-radius: 10px; }
+  .missions h4 { margin: 0 0 6px; font-family: var(--cond); font-weight: 700; font-size: 17px; color: #fff; }
+  .missions ul { list-style: none; margin: 0; padding: 0; }
+  .missions li { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: #e6e6e6; padding: 3px 0; }
+  .missions li.done { color: #8fd19e; }
+  .missions li b { font-weight: 500; color: #bdbdbd; white-space: nowrap; }
+  .missions li.done b { color: #8fd19e; }
+  @media (max-height: 620px) { .ctl { width: 56px; height: 56px; } .ctl.brake { width: 62px; height: 62px; } .ctl.small { width: 46px; height: 46px; } .conductor { top: 108px; } }
+  @media (prefers-reduced-motion: reduce) { .toast, .conductor { transition: none; } }
 </style>
 </head>
 <body>
@@ -121,14 +150,27 @@
     <div>
       <div class="score" id="score">0</div>
       <div class="sub" id="best">Best 0</div>
-      <div class="mult" id="mult">x1</div>
+      <div class="mult" id="mult">x1</div><div class="fast" id="fast" hidden>FAST x1.5</div>
+      <div class="seats" id="seats">0/14 aboard</div>
     </div>
     <div class="hudbtns">
       <button class="iconbtn" id="muteBtn" aria-label="Sound off">♪</button>
       <button class="iconbtn" id="pauseBtn" aria-label="Pause">II</button>
     </div>
   </div>
+  <div class="trip" id="trip" hidden><b id="tripStop">Next stop</b><span id="tripInfo"></span></div>
   <div class="toast" id="toast" aria-live="polite"></div>
+  <div class="conductor" id="conductor" aria-live="polite"><small id="condWho">Conductor</small><span id="condLine"></span></div>
+  <div class="controls" id="controls" hidden>
+    <div class="ctlgroup">
+      <div class="speedo" id="speedo">0 km/h</div>
+      <button class="ctl brake" id="brakeBtn" aria-label="Brake, hold to stop"><span>BRAKE</span></button>
+    </div>
+    <div class="ctlgroup">
+      <button class="ctl small" id="hornBtn" aria-label="Horn, clears your lane"><i class="cd" id="hornCd"></i><span>HORN</span></button>
+      <button class="ctl" id="hopBtn" aria-label="Hop over potholes and barriers"><i class="cd" id="hopCd"></i><span>HOP</span></button>
+    </div>
+  </div>
 
   <section class="screen" id="start">
     <img class="logo" alt="FlyGidi" src="data:image/webp;base64,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">
@@ -145,6 +187,7 @@
       <button class="opt" data-level="expert">Expert</button>
     </div>
     <p class="note" id="levelNote"></p>
+    <div class="missions" id="menuMissions"></div>
 
     <p class="label" id="vehLabel">Vehicle</p>
     <div class="seg three" role="group" aria-labelledby="vehLabel">
@@ -162,8 +205,11 @@
 
     <button class="btn primary" id="startBtn">START RACE</button>
     <div class="foot">
-      <p class="how">Tap left or right to change lanes. Arrow keys on a computer.</p>
-      <button class="soundbtn" id="soundToggle">Sound on</button>
+      <p class="how">Tap left or right to change lanes. Hold BRAKE to stop in the yellow bus stop box. HOP or swipe up over potholes. HORN clears your lane.<br>Computer: arrow keys to steer, down to brake, space to hop, H for horn.</p>
+      <div class="ctlgroup">
+        <button class="soundbtn" id="soundToggle">Sound on</button>
+        <button class="soundbtn" id="voiceToggle">Conductor on</button>
+      </div>
     </div>
     <button class="link" id="testerBtn">Prototype only: unlock all routes for testing</button>
     <footer class="legal">
@@ -182,6 +228,7 @@
 
   <section class="screen center" id="paused" hidden>
     <p class="crash">Paused</p>
+    <div class="missions" id="pauseMissions"></div>
     <button class="btn primary" id="resumeBtn">RESUME</button>
     <button class="btn ghost" id="quitBtn">END RACE</button>
   </section>
@@ -189,6 +236,7 @@
   <section class="screen center" id="over" hidden>
     <div id="unlockMsg" class="unlockmsg" hidden></div>
     <div id="newBest" class="newbest" hidden>New best!</div>
+    <div id="missionMsg" class="unlockmsg" hidden></div>
     <p class="crash" id="crashLine">Danfo no dey look road o.</p>
     <p class="meta" id="overMeta"></p>
     <p class="big" id="finalScore">0</p>
@@ -196,6 +244,8 @@
       <div><span id="finalBestLabel">Best</span><b id="finalBest">0</b></div>
       <div><span>Distance</span><b id="finalDist">0 m</b></div>
       <div><span>Passed</span><b id="finalPassed">0</b></div>
+      <div><span>Passengers</span><b id="finalPax">0</b></div>
+      <div><span>Close calls</span><b id="finalNear">0</b></div>
     </div>
     <button class="btn primary" id="againBtn">RACE AGAIN</button>
     <button class="btn ghost" id="menuBtn">MAIN MENU</button>
@@ -252,6 +302,44 @@
     suv:       { label: 'SUV', note: 'Rides over potholes without losing your streak, but it is wide and slower to turn.', w: 0.66, h: 1.2, steer: 11, pothole: 'immune' },
     sportcar:  { label: 'Sports Car', note: 'Runs 10% faster and earns 10% more distance points. Sits low, so potholes cost double.', w: 0.56, h: 1.05, steer: 16, pothole: 'double', speed: 1.1, score: 1.1 }
   };
+
+  // real bus stops along each route, served in order and looped on long runs
+  const STOPS = {
+    tmb: ['Oworonshoki', 'Adekunle', 'Adeniji Adele', 'Obalende', 'Ebute Metta'],
+    surulere: ['Ojuelegba', 'Stadium', 'Masha', 'Bode Thomas', 'Adeniran Ogunsanya', 'Aguda'],
+    lekki: ['Oniru', 'Lekki Phase 1', 'Ikate', 'Jakande', 'Chevron', 'Ajah'],
+    ikoyi: ['Obalende', 'Falomo', 'Awolowo Road', 'Bourdillon', 'Dolphin'],
+    ikeja: ['Ojota', 'Maryland', 'Ikeja Under Bridge', 'Allen', 'Toyin', 'Opebi'],
+    vi: ['Eko Hotel', 'Ahmadu Bello', 'Adeola Odeku', 'Ozumba Mbadiwe', 'Bar Beach'],
+    cms: ['CMS', 'Marina', 'Broad Street', 'Tinubu Square', 'Idumota', 'Obalende'],
+    oshodi: ['Oshodi', 'Bolade', 'Charity', 'Mafoluku', 'Isolo', 'Ilasamaja']
+  };
+  const SEATS = { danfo: 14, keke: 3, powerbike: 1, suv: 6, sportcar: 2 };
+
+  // missions: three per rank, kept separately for each level; finishing a rank lifts the multiplier
+  const MISSION_RANKS = [
+    { mult: 1, list: [
+      { id: 'pax5', text: 'Drop 5 passengers in one run', stat: 'pax', goal: 5 },
+      { id: 'near3', text: 'Get 3 close calls in one run', stat: 'near', goal: 3 },
+      { id: 'm1500', text: 'Drive 1,500 m in one run', stat: 'meters', goal: 1500 } ] },
+    { mult: 1.5, list: [
+      { id: 'pax10', text: 'Drop 10 passengers without crashing', stat: 'pax', goal: 10 },
+      { id: 'hop3', text: 'Hop over 3 potholes in one run', stat: 'hops', goal: 3 },
+      { id: 'near6', text: 'Get 6 close calls in one run', stat: 'near', goal: 6 } ] },
+    { mult: 2, list: [
+      { id: 'pax15', text: 'Drop 15 passengers in one run', stat: 'pax', goal: 15 },
+      { id: 'combo4', text: 'Build a x4 combo', stat: 'combo', goal: 4 },
+      { id: 'm3000', text: 'Drive 3,000 m in one run', stat: 'meters', goal: 3000 } ] },
+    { mult: 2.5, list: [
+      { id: 'pax25', text: 'Drop 25 passengers in one run', stat: 'pax', goal: 25 },
+      { id: 'stops6', text: 'Serve 6 stops in a row without missing one', stat: 'stopRun', goal: 6 },
+      { id: 'near12', text: 'Get 12 close calls in one run', stat: 'near', goal: 12 } ] },
+    { mult: 3, list: [] }
+  ];
+  const missionKey = (l) => 'flygidi_missions_' + l;
+  const getMissions = (l) => { const m = store.get(missionKey(l), null); return m && typeof m.rank === 'number' ? m : { rank: 0, done: [] }; };
+  const missionMult = () => MISSION_RANKS[Math.min(getMissions(level).rank, MISSION_RANKS.length - 1)].mult;
+  const fmtMult = (m) => 'x' + (Math.round(m * 10) / 10);
 
   const COLORS = {
     yellow: { label: 'Danfo Yellow', hex: '#FAC206' },
@@ -379,7 +467,44 @@
       siren() { for (let i = 0; i < 4; i++) { tone(650, 0.2, 'square', 0.06, 950, i * 0.4); tone(950, 0.2, 'square', 0.06, 650, i * 0.4 + 0.2); } },
       plane() { noise(1.6, 0.14, 600); },
       rain(dur) { noise(dur, 0.1, 2200); },
-      unlockRoute() { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.16, 'triangle', 0.1, null, i * 0.1)); }
+      unlockRoute() { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.16, 'triangle', 0.1, null, i * 0.1)); },
+      hop() { tone(300, 0.2, 'triangle', 0.09, 700); },
+      land() { noise(0.09, 0.22, 500); },
+      near() { noise(0.1, 0.14, 3200, 'highpass'); tone(1320, 0.07, 'triangle', 0.05, null, 0.03); },
+      brake() { noise(0.22, 0.06, 2800, 'bandpass'); },
+      ding() { tone(1175, 0.12, 'sine', 0.1); tone(1568, 0.22, 'sine', 0.08, null, 0.11); },
+      missed() { tone(392, 0.18, 'square', 0.06); tone(311, 0.26, 'square', 0.06, null, 0.18); },
+      mission() { [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.14, 'triangle', 0.1, null, i * 0.09)); }
+    };
+  })();
+
+  // ---------- conductor voice ----------
+  // uses the phone's own speech engine, preferring a Nigerian English voice when the phone has one.
+  // recorded voice lines can replace this later without changing the game logic.
+  let voiceOn = store.get('flygidi_voice', true);
+  const Voice = (() => {
+    const synth = window.speechSynthesis;
+    let chosen = null, primed = false;
+    function choose() {
+      if (!synth) return;
+      const vs = synth.getVoices() || [];
+      chosen = vs.find(v => /en[-_]NG/i.test(v.lang)) || vs.find(v => /Nigeria/i.test(v.name)) || vs.find(v => /en[-_]GB/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null;
+    }
+    if (synth) { choose(); try { synth.addEventListener('voiceschanged', choose); } catch (e) { synth.onvoiceschanged = choose; } }
+    return {
+      // iPhones only allow speech that starts inside a tap, so the first call happens on START
+      prime() { if (!synth || primed) return; try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; synth.speak(u); primed = true; } catch (e) {} },
+      say(text) {
+        if (!synth || !soundOn || !voiceOn) return;
+        try {
+          synth.cancel();
+          const u = new SpeechSynthesisUtterance(text);
+          if (chosen) { u.voice = chosen; u.lang = chosen.lang; } else u.lang = 'en-NG';
+          u.rate = 1.12; u.pitch = 0.9; u.volume = 1;
+          synth.speak(u);
+        } catch (e) {}
+      },
+      stop() { try { if (synth) synth.cancel(); } catch (e) {} }
     };
   })();
   // any tap, click or key press anywhere can unlock audio, which iOS and Android both require
@@ -407,6 +532,13 @@
   // ---------- state ----------
   let state = 'menu';
   let player, obstacles, fx, scene, t, speed, dist, score, mult, cleanStreak, passed, spawnGap, tollGap, hawkerTimer, shake, junctionGap, convoyTimer, convoyWarn, planeTimer, worksGap, rainTimer, rainT;
+  // driving controls, bus stops and run stats
+  let cruise, braking = false, brakeKey = false, brakeBtnDown = false, hopT, hopCd, hornCd, fastOn, mMult = 1;
+  let stopGap, stopSeq, passengers, run, runMissionsDone, mState;
+  const BRAKE_DECEL = 1150, RECOVER = 330, HOP_TIME = 0.62, HOP_COOLDOWN = 2.2, BAY_WAIT = 0.45;
+  const HORN_COOLDOWN = { novice: 9, pro: 12, expert: 15 };
+  const LANE_TRAFFIC = ['car', 'danfo', 'keke', 'okada', 'bus'];
+  const BAY_LANE = 3; // Lagos drives on the right, so stops sit on the right kerb
 
   function dims(kind) {
     const L = road.lane;
@@ -425,6 +557,7 @@
       case 'convoy': return { w: L * 0.62, h: L * 1.15 };
       case 'junction': return { w: road.w, h: L * 1.4 };
       case 'works': return { w: L * 0.9, h: L * 3.2 };
+      case 'bay': return { w: L * 0.96, h: L * 2.2 };
     }
   }
   function sizeActors() {
@@ -437,6 +570,12 @@
     player = { lane: 1, x: 0, tx: 0, y: 0, w: 0, h: 0, tilt: 0, wobble: 0 };
     obstacles = []; fx = []; t = 0; speed = LEVELS[level].start * ROUTES[route].speed; dist = 0; score = 0; mult = 1; cleanStreak = 0; passed = 0; shake = 0;
     spawnGap = road.lane * 2; tollGap = road.lane * 16; hawkerTimer = rnd(4, 7); junctionGap = road.lane * 14; convoyTimer = rnd(7, 11); convoyWarn = null; planeTimer = rnd(3, 6); worksGap = road.lane * 12; rainTimer = rnd(6, 10); rainT = 0;
+    cruise = speed; braking = false; brakeKey = false; brakeBtnDown = false; hopT = 0; hopCd = 0; hornCd = 0; fastOn = false;
+    // the first stop comes early so new players meet the pickup straight away
+    stopGap = road.lane * 9; stopSeq = 0; passengers = [];
+    run = { pax: 0, near: 0, meters: 0, hops: 0, combo: 1, stopRun: 0, stopsServed: 0 };
+    runMissionsDone = [];
+    mState = getMissions(level); mMult = MISSION_RANKS[Math.min(mState.rank, MISSION_RANKS.length - 1)].mult;
     player.x = laneX(player.lane); player.tx = player.x;
     sizeActors();
     initScene();
@@ -521,7 +660,9 @@
   }
   function spawnRow() {
     const L = LEVELS[level];
-    if (ROUTES[route].busstops && Math.random() < 0.22) {
+    // keep the stop lane clear just before and just after a bus stop appears
+    const bayNear = stopGap < road.lane * 4 || obstacles.some(o => o.kind === 'bay' && o.y < road.lane * 2.5);
+    if (ROUTES[route].busstops && !bayNear && !bayAhead() && Math.random() < 0.22) {
       // a danfo waiting at a bus stop that pulls into traffic as you approach
       const lane = Math.random() < .5 ? 0 : 3;
       const o = makeObstacle('danfo', lane, -(dims('danfo').h + 20));
@@ -532,7 +673,7 @@
     }
     const difficulty = Math.min(1, t / 90);
     const count = Math.random() < L.pairLo + difficulty * (L.pairHi - L.pairLo) ? 2 : 1;
-    const lanes = [0, 1, 2, 3].sort(() => Math.random() - .5).slice(0, count);
+    const lanes = [0, 1, 2, 3].filter(l => !bayNear || l !== BAY_LANE).sort(() => Math.random() - .5).slice(0, count);
     for (const lane of lanes) {
       const kind = pickKind();
       obstacles.push(makeObstacle(kind, lane, -(dims(kind).h + 20)));
@@ -564,6 +705,119 @@
     o.h = road.lane * rnd(2.6, 3.8);
     obstacles.push(o);
   }
+  // ---------- bus stops and passengers ----------
+  const CROWD = ['#E0322B', '#1F6FB2', '#FAC206', '#008751', '#F2F2F2', '#8E44AD', '#F28C28'];
+  const stopName = (seq) => STOPS[route][seq % STOPS[route].length];
+  const bayAhead = () => obstacles.some(o => o.kind === 'bay' && !o.counted);
+  const LINES = {
+    approach: [(n) => n + '! ' + n + '! Who dey come down?', (n) => n + '! ' + n + '! Enter with change o!', (n) => n + ' dey come! Keep right!'],
+    next: [(n) => 'Next stop ' + n + '! Shift inside small.', (n) => n + ', ' + n + '! Make we dey go.', (n) => 'Next na ' + n + '. Hold your bag well.'],
+    missed: ['Driver! You don pass my stop!', 'Owa! Owa! Driver, you no hear?', 'Ah ah! Na here I for come down!']
+  };
+  let condTimer;
+  function conductor(who, line, ms) {
+    $('condWho').textContent = who; $('condLine').textContent = line;
+    const el = $('conductor'); el.classList.add('show');
+    clearTimeout(condTimer); condTimer = setTimeout(() => el.classList.remove('show'), ms || 2200);
+  }
+  function spawnBay() {
+    const b = makeObstacle('bay', BAY_LANE, -(dims('bay').h + 20));
+    b.rel = 1; b.seq = stopSeq; b.name = stopName(stopSeq);
+    b.waiting = 1 + ((Math.random() * 4) | 0); b.wait = 0; b.done = false;
+    b.crowd = [0, 1, 2, 3].map(() => pick(CROWD));
+    obstacles.push(b); stopSeq++;
+    const down = passengers.filter(p => p.dest === b.seq).length;
+    conductor('Conductor', pick(LINES.approach)(b.name));
+    Voice.say(b.name + '! ' + b.name + '!');
+  }
+  function serveBay(b) {
+    b.done = true;
+    const off = passengers.filter(p => p.dest === b.seq);
+    passengers = passengers.filter(p => p.dest !== b.seq);
+    let msg = '';
+    if (off.length) {
+      // longer rides earn more trip points
+      const p = award(off.reduce((a, q) => a + 20 + 12 * (q.dest - q.from), 0));
+      run.pax += off.length; cleanEvent(off.length);
+      msg = off.length + ' down +' + fmt(p);
+    }
+    const board = Math.min(SEATS[vehicle] - passengers.length, b.waiting);
+    for (let i = 0; i < board; i++) passengers.push({ from: b.seq, dest: b.seq + 1 + ((Math.random() * 3) | 0) });
+    b.boarded = board;
+    run.stopsServed++; run.stopRun++;
+    Sound.ding();
+    toast(msg || (board ? board + ' on board' : 'Stop served'));
+    const next = stopName(stopSeq);
+    conductor('Conductor', pick(LINES.next)(next));
+    Voice.say('Next stop, ' + next + '!');
+  }
+  function missBay(b) {
+    run.stopRun = 0;
+    const off = passengers.filter(p => p.dest === b.seq);
+    if (!off.length) return;
+    passengers = passengers.filter(p => p.dest !== b.seq);
+    mult = 1; cleanStreak = 0;
+    toast('Missed stop! Combo lost'); Sound.missed();
+    conductor('Passenger', pick(LINES.missed));
+  }
+  function handleBay(b, dt) {
+    if (!b.done) {
+      const cy = player.y + player.h / 2;
+      const inside = player.lane === BAY_LANE && Math.abs(player.x - laneX(BAY_LANE)) < road.lane * 0.3 && cy > b.y - player.h * 0.2 && cy < b.y + b.h + player.h * 0.2;
+      if (inside && speed < Math.max(30, cruise * 0.12)) { b.wait += dt; if (b.wait >= BAY_WAIT) serveBay(b); }
+      else b.wait = Math.max(0, b.wait - dt * 2);
+    }
+    if (!b.counted && b.y > player.y + player.h) { b.counted = true; if (!b.done) missBay(b); }
+  }
+
+  // ---------- scoring helpers ----------
+  const fastFactor = () => (fastOn ? 1.5 : 1);
+  function award(base) { const p = Math.round(base * mult * mMult * fastFactor()); score += p; return p; }
+  function cleanEvent(k) {
+    for (let i = 0; i < k; i++) {
+      cleanStreak++;
+      if (cleanStreak % 8 === 0 && mult < 5) { mult++; toast('Combo x' + mult); Sound.streak(); }
+    }
+    if (mult > run.combo) run.combo = mult;
+  }
+  function nearMiss() { run.near++; const p = award(15); cleanEvent(1); toast('Close one! +' + p); Sound.near(); }
+  function checkMissions() {
+    const rk = MISSION_RANKS[mState.rank];
+    if (!rk || !rk.list.length) return;
+    let changed = false;
+    for (const m of rk.list) if (!mState.done.includes(m.id) && run[m.stat] >= m.goal) {
+      mState.done.push(m.id); runMissionsDone.push(m.text); changed = true;
+      conductor('Mission done', m.text, 2600); Sound.mission();
+    }
+    if (rk.list.every(m => mState.done.includes(m.id))) {
+      mState.rank = Math.min(mState.rank + 1, MISSION_RANKS.length - 1); mState.done = [];
+      mMult = MISSION_RANKS[mState.rank].mult;
+      runMissionsDone.push('Rank up! ' + LEVELS[level].label + ' multiplier is now ' + fmtMult(mMult));
+      setTimeout(() => { if (state === 'play') conductor('Rank up', LEVELS[level].label + ' multiplier now ' + fmtMult(mMult), 2600); }, 2700);
+      changed = true;
+    }
+    if (changed) store.set(missionKey(level), mState);
+  }
+
+  // ---------- driver actions ----------
+  function hop() {
+    if (state !== 'play' || hopT > 0 || hopCd > 0) return;
+    hopT = HOP_TIME; hopCd = HOP_COOLDOWN; Sound.hop();
+  }
+  function honk() {
+    if (state !== 'play' || hornCd > 0) return;
+    hornCd = HORN_COOLDOWN[level]; Sound.horn();
+    let moved = 0, bus = false;
+    for (const o of obstacles) {
+      if (!LANE_TRAFFIC.includes(o.kind) || o.counted || o.lane !== player.lane) continue;
+      if (o.y + o.h > player.y + 4 || o.y < player.y - road.lane * 6) continue; // only close traffic ahead
+      if (o.kind === 'bus') { bus = true; continue; }
+      const opts = [o.lane - 1, o.lane + 1].filter(l => l >= 0 && l < LANES && !obstacles.some(p => p !== o && p.lane === l && LANE_TRAFFIC.concat(['breakdown', 'works']).includes(p.kind) && Math.abs(p.y - o.y) < road.lane * 1.4));
+      if (opts.length) { o.lane = pick(opts); o.parked = false; o.pulling = false; o.rel = Math.min(o.rel, 0.8); moved++; }
+    }
+    toast(bus && !moved ? 'BRT no dey shift for horn' : moved ? 'Clear road!' : 'Make way o!');
+  }
+
   function startConvoy() {
     convoyWarn = { lane: (Math.random() * LANES) | 0, t: 1.7 };
     toast('Siren! Clear the lane'); Sound.siren();
@@ -596,27 +850,51 @@
     if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') { move(-1); e.preventDefault(); }
     else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { move(1); e.preventDefault(); }
     else if ((e.key === 'Escape' || e.key === 'p') && (state === 'play' || state === 'pause')) togglePause();
+    else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') { brakeKey = true; e.preventDefault(); }
+    else if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') { if (!e.repeat) hop(); e.preventDefault(); }
+    else if (e.key === 'h' || e.key === 'H') { if (!e.repeat) honk(); }
   });
+  window.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') brakeKey = false;
+  });
+  window.addEventListener('blur', () => { brakeKey = false; brakeBtnDown = false; });
   let touchStart = null;
-  function pressStart(x) { touchStart = { x }; }
-  function pressEnd(x) {
+  function pressStart(x, y) { touchStart = { x, y }; }
+  function pressEnd(x, y) {
     if (!touchStart) return;
-    const dx = x - touchStart.x;
-    if (Math.abs(dx) > 30) move(dx > 0 ? 1 : -1);
+    const dx = x - touchStart.x, dy = y - touchStart.y;
+    if (dy < -40 && Math.abs(dy) > Math.abs(dx)) hop();
+    else if (Math.abs(dx) > 30) move(dx > 0 ? 1 : -1);
     else { const r = canvas.getBoundingClientRect(); move(x - r.left < r.width / 2 ? -1 : 1); }
     touchStart = null;
   }
   if (window.PointerEvent) {
-    canvas.addEventListener('pointerdown', (e) => pressStart(e.clientX));
-    canvas.addEventListener('pointerup', (e) => pressEnd(e.clientX));
+    canvas.addEventListener('pointerdown', (e) => pressStart(e.clientX, e.clientY));
+    canvas.addEventListener('pointerup', (e) => pressEnd(e.clientX, e.clientY));
     canvas.addEventListener('pointercancel', () => { touchStart = null; });
   } else {
     // older phones without pointer events
-    canvas.addEventListener('touchstart', (e) => pressStart(e.changedTouches[0].clientX), { passive: true });
-    canvas.addEventListener('touchend', (e) => pressEnd(e.changedTouches[0].clientX), { passive: true });
-    canvas.addEventListener('mousedown', (e) => pressStart(e.clientX));
-    canvas.addEventListener('mouseup', (e) => pressEnd(e.clientX));
+    canvas.addEventListener('touchstart', (e) => pressStart(e.changedTouches[0].clientX, e.changedTouches[0].clientY), { passive: true });
+    canvas.addEventListener('touchend', (e) => pressEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY), { passive: true });
+    canvas.addEventListener('mousedown', (e) => pressStart(e.clientX, e.clientY));
+    canvas.addEventListener('mouseup', (e) => pressEnd(e.clientX, e.clientY));
   }
+  // on screen buttons: brake is held, hop and horn fire on touch down so there is no tap delay
+  function bindHold(el, on, off) {
+    const down = (e) => { if (e.cancelable) e.preventDefault(); on(); try { if (e.pointerId !== undefined && el.setPointerCapture) el.setPointerCapture(e.pointerId); } catch (x) {} };
+    if (window.PointerEvent) {
+      el.addEventListener('pointerdown', down);
+      ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => el.addEventListener(ev, off));
+    } else {
+      el.addEventListener('touchstart', down, { passive: false });
+      ['touchend', 'touchcancel'].forEach(ev => el.addEventListener(ev, off));
+      el.addEventListener('mousedown', down); el.addEventListener('mouseup', off); el.addEventListener('mouseleave', off);
+    }
+    el.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+  bindHold($('brakeBtn'), () => { brakeBtnDown = true; }, () => { brakeBtnDown = false; });
+  bindHold($('hopBtn'), hop, () => {});
+  bindHold($('hornBtn'), honk, () => {});
 
   // ---------- menus ----------
   function renderMenu() {
@@ -655,28 +933,49 @@
     $('startBtn').disabled = !open;
     $('startBtn').textContent = open ? 'START RACE' : 'ROUTE LOCKED';
     $('soundToggle').textContent = soundOn ? 'Sound on' : 'Sound off';
+    $('voiceToggle').textContent = voiceOn ? 'Conductor on' : 'Conductor off';
+    renderMissions($('menuMissions'), false);
     $('muteBtn').textContent = soundOn ? '♪' : '×';
     $('muteBtn').setAttribute('aria-label', soundOn ? 'Turn sound off' : 'Turn sound on');
     $('testerBtn').hidden = testerUnlock;
   }
   document.querySelectorAll('[data-level]').forEach(b => b.addEventListener('click', () => { level = b.dataset.level; store.set('flygidi_level', level); renderMenu(); }));
   document.querySelectorAll('[data-veh]').forEach(b => b.addEventListener('click', () => { vehicle = b.dataset.veh; store.set('flygidi_vehicle', vehicle); reset(); renderMenu(); }));
+  function renderMissions(el, live) {
+    const ms = live ? mState : getMissions(level);
+    const ri = Math.min(ms.rank, MISSION_RANKS.length - 1), rk = MISSION_RANKS[ri], nx = MISSION_RANKS[ri + 1];
+    let html = '<h4>Missions: ' + LEVELS[level].label + ' rank ' + (ri + 1) + ', ' + fmtMult(rk.mult) + '</h4><ul>';
+    if (!rk.list.length) html += '<li>All missions done. Your top multiplier stays with you.</li>';
+    for (const m of rk.list) {
+      const done = ms.done.includes(m.id);
+      const right = done ? 'Done' : live ? fmt(Math.min(run[m.stat], m.goal)) + '/' + fmt(m.goal) : '';
+      html += '<li class="' + (done ? 'done' : '') + '"><span>' + m.text + '</span><b>' + right + '</b></li>';
+    }
+    if (nx && rk.list.length) html += '<li><span>Finish all three to reach ' + fmtMult(nx.mult) + '</span><b></b></li>';
+    el.innerHTML = html + '</ul>';
+  }
+  $('voiceToggle').onclick = () => { voiceOn = !voiceOn; store.set('flygidi_voice', voiceOn); if (!voiceOn) Voice.stop(); else { Voice.prime(); Voice.say('Oya, enter!'); } renderMenu(); };
   function toggleSound() { soundOn = !soundOn; store.set('flygidi_sound', soundOn); Sound.setOn(soundOn); renderMenu(); }
   $('soundToggle').onclick = toggleSound;
   $('muteBtn').onclick = toggleSound;
   $('testerBtn').onclick = () => { testerUnlock = true; store.set('flygidi_tester_unlock', true); renderMenu(); };
 
-  const show = (id) => { ['start', 'paused', 'over', 'doc'].forEach(s => $(s).hidden = s !== id); $('hud').hidden = !(id === null || id === 'paused'); };
+  const show = (id) => {
+    ['start', 'paused', 'over', 'doc'].forEach(s => $(s).hidden = s !== id);
+    $('hud').hidden = !(id === null || id === 'paused');
+    $('controls').hidden = id !== null; $('trip').hidden = id !== null;
+    if (id !== null) $('conductor').classList.remove('show');
+  };
   let unlockedBefore = [];
   function startGame() {
     if (!isUnlocked(route)) return;
-    Sound.unlock();
+    Sound.unlock(); Voice.prime();
     unlockedBefore = ROUTE_ORDER.filter(isUnlocked);
     reset(); state = 'play'; show(null); last = performance.now();
     Sound.horn(); Sound.engineStart();
   }
   function togglePause() {
-    if (state === 'play') { state = 'pause'; show('paused'); Sound.engineStop(); }
+    if (state === 'play') { state = 'pause'; brakeKey = false; brakeBtnDown = false; renderMissions($('pauseMissions'), true); show('paused'); Sound.engineStop(); Voice.stop(); }
     else if (state === 'pause') { state = 'play'; show(null); last = performance.now(); Sound.unlock(); Sound.engineStart(); }
   }
   $('startBtn').onclick = startGame;
@@ -739,7 +1038,8 @@
   };
   function crash(o, quit) {
     state = 'over';
-    Sound.engineStop();
+    Sound.engineStop(); Voice.stop();
+    brakeKey = false; brakeBtnDown = false;
     if (!quit) Sound.crash();
     const lines = CRASH_LINES[quit ? 'quit' : o.kind] || CRASH_LINES.car;
     $('crashLine').textContent = pick(lines);
@@ -756,6 +1056,10 @@
     $('finalBest').textContent = fmt(best);
     $('finalDist').textContent = fmt(dist / 10) + ' m';
     $('finalPassed').textContent = passed;
+    $('finalPax').textContent = run.pax;
+    $('finalNear').textContent = run.near;
+    if (runMissionsDone.length) { $('missionMsg').textContent = runMissionsDone.length === 1 ? 'Mission done: ' + runMissionsDone[0] : runMissionsDone.join(' · '); $('missionMsg').hidden = false; }
+    else $('missionMsg').hidden = true;
     shake = quit ? 0 : 14;
     setTimeout(() => { show('over'); $('over').scrollTop = 0; }, quit ? 0 : 450);
   }
@@ -765,10 +1069,42 @@
     const el = $('toast'); el.textContent = msg; el.classList.add('show');
     clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 900);
   }
+  // only touch the page when a value changes, which keeps cheap phones smooth
+  const hudCache = {};
+  function setText(id, v) { if (hudCache[id] !== v) { hudCache[id] = v; $(id).textContent = v; } }
+  function setFlag(id, key, v) { const k = id + key; if (hudCache[k] !== v) { hudCache[k] = v; if (key === 'hidden') $(id).hidden = v; else $(id).classList.toggle(key, v); } }
   function updateHud() {
-    $('score').textContent = fmt(score);
-    $('best').textContent = LEVELS[level].label + ' best ' + fmt(best);
-    $('mult').textContent = 'x' + mult;
+    setText('score', fmt(score));
+    setText('best', LEVELS[level].label + ' best ' + fmt(best));
+    setText('mult', fmtMult(mult * mMult));
+    setFlag('fast', 'hidden', !fastOn);
+    if (!passengers) return;
+    setText('seats', passengers.length + '/' + SEATS[vehicle] + ' aboard');
+    setText('speedo', Math.round(speed * 0.15) + ' km/h');
+    // next stop panel
+    const b = obstacles.find(o => o.kind === 'bay' && !o.counted);
+    const seq = b ? b.seq : stopSeq;
+    const down = passengers.filter(p => p.dest === seq).length;
+    setText('tripStop', 'Next stop: ' + stopName(seq));
+    let info, cue = false;
+    if (b && b.done) info = 'Served. Drive on';
+    else if (b) {
+      const cy = player.y + player.h / 2;
+      const gap = cy - (b.y + b.h);                       // distance before the box starts
+      const stopDist = speed * speed / (2 * BRAKE_DECEL);
+      const m = Math.max(0, Math.round(gap / 10));
+      if (gap <= 0 && cy > b.y - player.h * 0.2) info = player.lane === BAY_LANE ? (speed < 40 ? 'Loading...' : 'Hold BRAKE to stop') : 'Move right to stop';
+      else if (player.lane === BAY_LANE && gap <= stopDist + road.lane * 0.6) { info = 'BRAKE NOW'; cue = true; }
+      else info = m + ' m · ' + (player.lane !== BAY_LANE ? 'keep right · ' : '') + (down ? down + ' getting down' : b.waiting + ' waiting');
+    } else info = Math.round((stopGap + player.y) / 10) + ' m' + (down ? ' · ' + down + ' getting down' : '');
+    setText('tripInfo', info);
+    setFlag('brakeBtn', 'on', braking);
+    setFlag('brakeBtn', 'cue', cue);
+    const hornFrac = hornCd / HORN_COOLDOWN[level], hopFrac = hopCd / HOP_COOLDOWN;
+    setFlag('hornBtn', 'cooling', hornCd > 0); setFlag('hopBtn', 'cooling', hopCd > 0);
+    const hh = Math.round(hornFrac * 100) + '%', ph = Math.round(hopFrac * 100) + '%';
+    if (hudCache.hornCd !== hh) { hudCache.hornCd = hh; $('hornCd').style.height = hh; }
+    if (hudCache.hopCd !== ph) { hudCache.hopCd = ph; $('hopCd').style.height = ph; }
   }
 
   // ---------- update ----------
@@ -776,11 +1112,22 @@
     t += dt;
     const LV = LEVELS[level], R = ROUTES[route];
     const VH = VEHICLES[vehicle];
-    speed = Math.min(LV.max * R.speed, (LV.start + t * LV.accel) * R.speed) * (VH.speed || 1);
+    // cruise is the speed the road wants; braking pulls below it and the danfo recovers on release
+    cruise = Math.min(LV.max * R.speed, (LV.start + t * LV.accel) * R.speed) * (VH.speed || 1);
+    const topCruise = LV.max * R.speed * (VH.speed || 1);
+    const wasBraking = braking;
+    braking = brakeKey || brakeBtnDown;
+    if (braking && !wasBraking && speed > 120) Sound.brake();
+    if (braking) speed = Math.max(0, speed - BRAKE_DECEL * dt);
+    else speed = Math.min(cruise, speed + RECOVER * dt);
+    fastOn = !braking && speed >= topCruise * 0.8;
     Sound.engineSet(speed);
     const dy = speed * dt;
     dist += dy;
-    score += dy * 0.02 * mult * (rainT > 0 ? 2 : 1) * (VH.score || 1);
+    score += dy * 0.02 * mult * mMult * fastFactor() * (rainT > 0 ? 2 : 1) * (VH.score || 1);
+    run.meters = Math.floor(dist / 10);
+    if (hopT > 0) { hopT -= dt; if (hopT <= 0) { hopT = 0; Sound.land(); } }
+    hopCd = Math.max(0, hopCd - dt); hornCd = Math.max(0, hornCd - dt);
 
     const steer = VEHICLES[vehicle].steer * (rainT > 0 ? 0.6 : 1);
     player.y = H - player.h - Math.min(90, Math.max(40, H * 0.12));
@@ -793,12 +1140,12 @@
     if (R.junctions) {
       junctionGap -= dy;
       if (junctionGap < road.lane * 7) tollSoon = true;
-      if (junctionGap <= 0) { spawnJunction(); junctionGap = road.lane * rnd(24, 32); spawnGap = road.lane * 3; }
+      if (junctionGap <= 0) { if (bayAhead()) junctionGap = road.lane * 8; else { spawnJunction(); junctionGap = road.lane * rnd(24, 32); spawnGap = road.lane * 3; } }
     }
     if (R.works) {
       worksGap -= dy;
       if (worksGap < road.lane * 6) tollSoon = true;
-      if (worksGap <= 0) { spawnWorks(); worksGap = road.lane * rnd(22, 30); spawnGap = road.lane * 1.5; }
+      if (worksGap <= 0) { if (bayAhead()) worksGap = road.lane * 7; else { spawnWorks(); worksGap = road.lane * rnd(22, 30); spawnGap = road.lane * 1.5; } }
     }
     if (R.rain) {
       if (rainT > 0) { rainT -= dt; if (rainT <= 0) { toast('Rain don stop'); rainTimer = rnd(9, 14); } }
@@ -815,7 +1162,15 @@
     if (R.toll) {
       tollGap -= dy;
       if (tollGap < road.lane * 9) tollSoon = true;
-      if (tollGap <= 0) { spawnToll(); tollGap = road.lane * rnd(26, 34); spawnGap = road.lane * 3.2; }
+      if (tollGap <= 0) { if (bayAhead()) tollGap = road.lane * 10; else { spawnToll(); tollGap = road.lane * rnd(26, 34); spawnGap = road.lane * 3.2; } }
+    }
+    // bus stops: one every few hundred metres, held back while a toll, junction or road works is close
+    stopGap -= dy;
+    if (stopGap <= 0) {
+      const featureSoon = (R.toll && tollGap < road.lane * 11) || (R.junctions && junctionGap < road.lane * 9) || (R.works && worksGap < road.lane * 9) ||
+        obstacles.some(o => (o.kind === 'plaza' || o.kind === 'junction' || o.kind === 'works') && o.y < player.y + player.h);
+      if (featureSoon) stopGap = road.lane * 4;
+      else { spawnBay(); stopGap = road.lane * rnd(26, 36); }
     }
     spawnGap -= dy;
     if (spawnGap <= 0 && !tollSoon) {
@@ -829,7 +1184,10 @@
     }
 
     for (const o of obstacles) {
-      o.y += dy * o.rel;
+      // each vehicle keeps its own pace; when you brake, traffic ahead pulls away, and traffic you have passed does not reverse into you
+      let d = (speed - (1 - o.rel) * cruise) * dt;
+      if (d < 0 && o.counted && o.rel >= 0) d = 0;
+      o.y += d;
       if (o.kind === 'okada' || o.kind === 'keke') {
         o.phase += dt * 3;
         const weaveRate = o.kind === 'okada' ? LV.weave : LV.weave * 0.5;
@@ -870,46 +1228,69 @@
         o.lane = pick(opts); o.parked = false;
       }
     }
+    // traffic merges out of the stop lane as a bus stop comes up
+    for (const b of obstacles) if (b.kind === 'bay' && !b.counted) {
+      for (const o of obstacles) if (LANE_TRAFFIC.includes(o.kind) && o.lane === BAY_LANE && !o.counted && o.y + o.h > b.y - road.lane * 0.8 && o.y < b.y + b.h + road.lane * 0.4) { o.lane = BAY_LANE - 1; o.parked = false; }
+    }
     for (const o of obstacles) if (['car', 'danfo', 'bus'].includes(o.kind) && !o.parked && Math.abs(o.x - laneX(o.lane)) > 1) o.x += (laneX(o.lane) - o.x) * Math.min(1, dt * 3);
 
+    const NEAR_GAP = road.lane * 0.22;
+    const trackGap = (o, px, py, oy) => {
+      if (Math.abs(py - oy) < (player.h + o.h) / 2) { const g = Math.abs(px - o.x) - (player.w + o.w) / 2; if (o.minGap === undefined || g < o.minGap) o.minGap = g; }
+    };
     for (const o of obstacles) {
+      if (o.kind === 'bay') { handleBay(o, dt); continue; }
       if (o.kind === 'junction') {
-        if (!o.counted && o.y > player.y + player.h) { o.counted = true; score += 30 * mult; toast('Junction cleared +' + 30 * mult); Sound.toll(); }
+        if (!o.counted && o.y > player.y + player.h) { o.counted = true; const p = award(30); toast('Junction cleared +' + p); Sound.toll(); }
         continue;
       }
       if (o.kind === 'plaza') continue;
       if (o.kind === 'convoy') {
         const px = player.x, py = player.y + player.h / 2, oy = o.y + o.h / 2;
         if (Math.abs(px - o.x) < (player.w + o.w) / 2 * 0.82 && Math.abs(py - oy) < (player.h + o.h) / 2 * 0.85) { crash(o); return; }
-        if (!o.counted && o.y + o.h < player.y) { o.counted = true; if (o.last) { score += 40 * mult; toast('Convoy dodged +' + 40 * mult); Sound.streak(); } }
+        trackGap(o, px, py, oy);
+        if (!o.counted && o.y + o.h < player.y) {
+          o.counted = true;
+          if (o.minGap !== undefined && o.minGap < NEAR_GAP) nearMiss();
+          if (o.last) { const p = award(40); toast('Convoy dodged +' + p); Sound.streak(); }
+        }
         continue;
       }
       const px = player.x, py = player.y + player.h / 2, ox = o.x, oy = o.y + o.h / 2;
       const ix = (player.w + o.w) / 2 * 0.82, iy = (player.h + o.h) / 2 * 0.85;
+      if (LANE_TRAFFIC.includes(o.kind) || o.kind === 'breakdown') trackGap(o, px, py, oy);
       if (Math.abs(px - ox) < ix && Math.abs(py - oy) < iy) {
-        if (o.kind === 'pothole') {
+        if (hopT > 0 && (o.kind === 'pothole' || o.kind === 'barrier')) {
+          // in the air: potholes and toll barriers pass underneath
+          if (!o.hopped) {
+            o.hopped = true;
+            if (o.kind === 'pothole') { run.hops++; const p = award(15); cleanEvent(1); toast('Hop! +' + p); }
+            else { o.plaza.cleared = true; toast('You jump the gate! No toll bonus'); }
+          }
+        } else if ((o.kind === 'pothole' || o.kind === 'barrier') && o.hopped) {
+          // landed on the far side of it
+        } else if (o.kind === 'pothole') {
           const ph = VH.pothole || 'normal';
           if (ph === 'crash') { crash(o); return; }
           if (!o.hit) {
             o.hit = true;
             if (ph === 'immune') { player.wobble = 0.25; toast('SUV no send pothole'); Sound.pothole(); }
-            else { const cost = ph === 'double' ? 100 : 50; score = Math.max(0, score - cost); mult = 1; cleanStreak = 0; player.wobble = 0.5; shake = 6; toast('Pothole! Streak lost'); Sound.pothole(); }
+            else { const cost = ph === 'double' ? 100 : 50; score = Math.max(0, score - cost); mult = 1; cleanStreak = 0; player.wobble = 0.5; shake = 6; toast('Pothole! Combo lost'); Sound.pothole(); }
           }
         } else { crash(o); return; }
       }
       if (!o.counted && o.y > player.y + player.h) {
         o.counted = true;
         if (o.kind === 'barrier') {
-          if (!o.plaza.cleared) { o.plaza.cleared = true; score += 50 * mult; toast('Toll cleared +' + 50 * mult); Sound.toll(); }
+          if (!o.plaza.cleared) { o.plaza.cleared = true; const p = award(50); toast('Toll cleared +' + p); Sound.toll(); }
         } else if (o.kind === 'works') {
-          score += 20 * mult; toast('Road works cleared +' + 20 * mult); Sound.toll();
-        } else if (o.kind === 'hawker') {
-          // no points for passing people
+          const p = award(20); toast('Road works cleared +' + p); Sound.toll();
+        } else if (o.kind === 'hawker' || o.hopped) {
+          // no points for passing people; hopped potholes were scored in the air
         } else if (o.kind !== 'pothole' || !o.hit || VEHICLES[vehicle].pothole === 'immune') {
           if (o.kind !== 'pothole') { passed++; Sound.pass(); }
-          cleanStreak++;
-          score += 10 * mult;
-          if (cleanStreak % 8 === 0 && mult < 5) { mult++; toast('Streak x' + mult); Sound.streak(); }
+          award(10); cleanEvent(1);
+          if (o.minGap !== undefined && o.minGap < NEAR_GAP) nearMiss();
         }
       }
     }
@@ -919,6 +1300,7 @@
     for (const p of scene.props) if (p.type === 'plane') p.x += p.drift * dt;
     updateScene(dy);
     if (shake > 0) shake = Math.max(0, shake - dt * 40);
+    checkMissions();
     updateHud();
   }
 
@@ -1262,6 +1644,39 @@
     ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5; ctx.strokeRect(x - w / 2, y + h * 0.3, w, h * 0.4);
   }
 
+  function drawBay(b) {
+    const x = laneX(BAY_LANE), w = b.w, h = b.h, y = b.y;
+    // painted stop box in the right lane
+    ctx.fillStyle = b.done ? 'rgba(250,194,6,0.08)' : 'rgba(250,194,6,0.2)'; ctx.fillRect(x - w / 2, y, w, h);
+    ctx.strokeStyle = b.done ? 'rgba(250,194,6,0.45)' : '#FAC206'; ctx.lineWidth = 3;
+    if (ctx.setLineDash) ctx.setLineDash([10, 6]);
+    ctx.strokeRect(x - w / 2 + 1.5, y + 1.5, w - 3, h - 3);
+    if (ctx.setLineDash) ctx.setLineDash([]);
+    ctx.fillStyle = b.done ? 'rgba(250,194,6,0.45)' : 'rgba(250,194,6,0.95)';
+    ctx.font = '700 ' + Math.max(12, Math.round(road.lane * 0.24)) + 'px "Barlow Condensed", Arial, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('BUS', x, y + h * 0.36); ctx.fillText('STOP', x, y + h * 0.58);
+    if (!b.done && b.wait > 0) { ctx.fillStyle = '#FAC206'; ctx.fillRect(x - w / 2 + 5, y + h - 10, (w - 10) * Math.min(1, b.wait / BAY_WAIT), 5); }
+    // arrows on the approach
+    if (!b.done) {
+      ctx.strokeStyle = 'rgba(250,194,6,0.75)'; ctx.lineWidth = 3;
+      for (let i = 0; i < 3; i++) { const cy = y + h + road.lane * (0.35 + i * 0.34); ctx.beginPath(); ctx.moveTo(x - 10, cy + 6); ctx.lineTo(x, cy - 4); ctx.lineTo(x + 10, cy + 6); ctx.stroke(); }
+    }
+    // shelter on the right pavement with the stop name and the people waiting
+    const sx = road.x + road.w + EDGE + 2;
+    ctx.fillStyle = '#1F6FB2'; ctx.fillRect(sx, y + 4, 24, h - 8);
+    ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.fillRect(sx + 3, y + 7, 18, h - 14);
+    ctx.save(); ctx.translate(sx + 12, y + h / 2); ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = '#FFFFFF'; ctx.font = '700 11px "Barlow Condensed", Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(b.name.toUpperCase(), 0, 0); ctx.restore();
+    const n = b.done ? 0 : Math.min(4, b.waiting);
+    for (let i = 0; i < n; i++) {
+      const py = y + h * 0.2 + i * h * 0.18;
+      ctx.fillStyle = b.crowd[i]; ctx.beginPath(); ctx.ellipse(sx + 32, py, 5, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#2B1B12'; ctx.beginPath(); ctx.arc(sx + 32, py, 2.5, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
   function drawObstacle(o) {
     switch (o.kind) {
       case 'car': drawCar(o); break;
@@ -1280,7 +1695,13 @@
   function drawPlayer() {
     ctx.save();
     const wob = player.wobble > 0 ? Math.sin(player.wobble * 40) * 0.08 : 0;
-    ctx.translate(player.x, player.y + player.h / 2); ctx.rotate(player.tilt + wob); ctx.translate(-player.x, -(player.y + player.h / 2));
+    // a hop lifts the vehicle: its shadow stays on the road while the body grows and rises
+    const lift = hopT > 0 ? Math.sin(Math.PI * (1 - hopT / HOP_TIME)) : 0;
+    if (lift > 0) {
+      ctx.fillStyle = 'rgba(0,0,0,' + (0.35 - lift * 0.15) + ')';
+      ctx.beginPath(); ctx.ellipse(player.x + lift * 8, player.y + player.h / 2 + lift * 12, player.w * 0.55, player.h * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.translate(player.x, player.y + player.h / 2 - lift * 14); ctx.rotate(player.tilt + wob); ctx.scale(1 + lift * 0.22, 1 + lift * 0.22); ctx.translate(-player.x, -(player.y + player.h / 2));
     // a soft yellow glow under the player keeps it easy to spot whatever colour is chosen
     const gx = player.x, gy = player.y + player.h / 2, gr = Math.max(player.w, player.h) * 0.75;
     const glow = ctx.createRadialGradient(gx, gy, gr * 0.3, gx, gy, gr);
@@ -1292,6 +1713,16 @@
     else if (vehicle === 'suv') drawSUV(player.x, player.y, player.w, player.h, body);
     else if (vehicle === 'sportcar') drawSportcar(player.x, player.y, player.w, player.h, body);
     else drawDanfo(player.x, player.y, player.w, player.h, body, true);
+    // brake lights
+    if (braking && state === 'play') {
+      const by = player.y + player.h - 4, single = vehicle === 'powerbike' || vehicle === 'keke';
+      const spots = single ? [player.x] : [player.x - player.w / 2 + 6, player.x + player.w / 2 - 6];
+      for (const bx of spots) {
+        const g = ctx.createRadialGradient(bx, by, 0, bx, by, 18); g.addColorStop(0, 'rgba(255,40,30,0.75)'); g.addColorStop(1, 'rgba(255,40,30,0)');
+        ctx.fillStyle = g; ctx.fillRect(bx - 18, by - 18, 36, 36);
+        ctx.fillStyle = '#FF3B2F'; ctx.fillRect(bx - 4, by - 1, 8, 4);
+      }
+    }
     ctx.restore();
   }
 
@@ -1351,9 +1782,10 @@
     const sorted = obstacles.slice().sort((a, b) => a.y - b.y);
     for (const o of sorted) if (o.kind === 'junction') drawJunction(o);
     for (const o of sorted) if (o.kind === 'plaza') drawPlazaFloor(o);
+    for (const o of sorted) if (o.kind === 'bay') drawBay(o);
     for (const o of sorted) if (o.kind === 'pothole') drawPothole(o);
     for (const o of sorted) if (o.kind === 'works') drawWorks(o);
-    for (const o of sorted) if (o.kind !== 'pothole' && o.kind !== 'plaza' && o.kind !== 'junction' && o.kind !== 'works') drawObstacle(o);
+    for (const o of sorted) if (o.kind !== 'pothole' && o.kind !== 'plaza' && o.kind !== 'junction' && o.kind !== 'works' && o.kind !== 'bay') drawObstacle(o);
     drawConvoyWarning();
     drawPlayer();
     for (const o of sorted) if (o.kind === 'plaza') drawPlazaRoof(o);
