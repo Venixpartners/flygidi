@@ -44,7 +44,7 @@ select id, 'weekly', 'active', 0, now(), now() + interval '7 days' from flygidi.
 
 To switch the payment popup off for everyone (testing only), set the secret `FLYGIDI_PAYWALL` to `off` on the `flygidi-api` function. The older `FLYGIDI_BILLING_LIVE` secret is no longer read.
 
-Until the updated `flygidi-api` is deployed, the game counts the free day on the phone itself, from the first time the player is seen on that phone. Clearing the phone's site data resets that count, so deploy the server change before launch.
+The server version with the free day went live on 2 November 2026 (`flygidi-api` version 7). The game still has a fallback that counts the free day on the phone if it ever talks to an older server, which does not send `access.paywall`.
 
 ## Tuning difficulty
 
