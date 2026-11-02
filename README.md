@@ -29,9 +29,22 @@ Leaderboards show usernames only. Phone numbers are never shown to other players
 
 FlyGidi installs to the home screen from the browser (`manifest.webmanifest`, `sw.js`, `icons/`) and opens full screen. After the first visit it loads with no connection. A race finished offline is saved on the phone and posts to the boards when the connection returns, within three days. Phones with little memory, few cores or data saver on start in a light mode that draws at standard resolution with lighter effects, and any phone drops to it automatically if frames run slow.
 
-## Billing switch
+## Free day and payment popup
 
-Until the aggregator is connected, every signed in player can play. When billing goes live, set the secret `FLYGIDI_BILLING_LIVE` to `true` on the `flygidi-api` function. The game will then need an active row in `flygidi.subscriptions` to start a race. A plan confirmed in the last 48 hours still counts while the phone is offline.
+Signing in is free and needs no payment. Racing needs a sign in (phone number and username). Every player gets 24 hours of racing from their first sign in, once per player, recorded as a `trial` row in `flygidi.subscriptions`. After that, starting a race needs an active paid row (`daily`, `weekly` or `monthly`). Until there is one, the game shows the payment popup every time the player opens the game or tries to race, with the three plans and a button that opens the phone's messages with the keyword ready for 7996.
+
+The server makes the final call: `start` refuses a race with status 402 when there is no active plan, and the game stops and shows the popup. A paid plan confirmed in the last 48 hours still counts while the phone is offline. An ended free day does not.
+
+To let a tester keep racing, add a row in the Supabase SQL editor, for example:
+
+```sql
+insert into flygidi.subscriptions (player_id, plan, status, price_kobo, starts_at, ends_at)
+select id, 'weekly', 'active', 0, now(), now() + interval '7 days' from flygidi.players where display_name = 'GidiTester';
+```
+
+To switch the payment popup off for everyone (testing only), set the secret `FLYGIDI_PAYWALL` to `off` on the `flygidi-api` function. The older `FLYGIDI_BILLING_LIVE` secret is no longer read.
+
+Until the updated `flygidi-api` is deployed, the game counts the free day on the phone itself, from the first time the player is seen on that phone. Clearing the phone's site data resets that count, so deploy the server change before launch.
 
 ## Tuning difficulty
 

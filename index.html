@@ -202,6 +202,36 @@
   .field input { width: 100%; min-height: 50px; border-radius: 10px; border: 2px solid #fff; background: #000; color: #fff; font: 500 18px "Barlow", Arial, sans-serif; padding: 0 14px; -webkit-user-select: text; user-select: text; }
   .field input:focus { outline: none; border-color: var(--yellow); }
   .err { color: #ff8a80; font-size: 14px; min-height: 1.4em; margin: 0 0 10px; }
+  .field input { -webkit-user-select: text; user-select: text; }
+  .freeday { margin: -8px 0 16px; font-size: 14px; color: #fff; }
+  .freeday[hidden] { display: none; }
+  .freeday b { font-family: var(--cond); font-weight: 700; font-size: 17px; color: var(--yellow); }
+  .freeday.over b { color: #ff8a80; }
+  .freeday button { margin-left: 6px; }
+  .sinote { background: var(--yellow); color: #000; border-radius: 10px; padding: 10px 12px; font-weight: 500; font-size: 15px; margin: 0 0 14px; }
+  .sinote[hidden] { display: none; }
+  .consent { font-size: 13px; line-height: 1.5; color: #cfcfcf; margin: 2px 0 14px; }
+  .consent .link { font-size: 13px; padding: 4px 0; margin: -4px 0; min-height: 0; line-height: inherit; vertical-align: baseline; white-space: normal; color: #fff; }
+
+  /* payment popup: shown over everything whenever the free day is over and there is no plan */
+  .paywall { position: absolute; inset: 0; z-index: 30; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.72); padding: 16px; }
+  .paywall[hidden] { display: none; }
+  .pwcard { width: 100%; max-width: 440px; max-height: calc(100% - 8px); overflow-y: auto; background: #111; border: 2px solid var(--yellow); border-radius: 14px; padding: 20px 18px 18px; }
+  .pwcard h2 { font-family: var(--cond); font-style: italic; font-weight: 800; font-size: 30px; line-height: 1.05; color: var(--yellow); margin: 0 0 8px; }
+  .pwcard h2:focus { outline: none; }
+  .pwcard > p { font-size: 15px; line-height: 1.5; color: #f0f0f0; margin: 0 0 14px; }
+  .plans { display: grid; gap: 8px; margin: 0 0 12px; }
+  .plan { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 12px; padding: 12px 14px; border-radius: 10px; border: 2px solid #fff; color: #fff; text-decoration: none; }
+  .plan b { font-family: var(--cond); font-weight: 700; font-size: 20px; }
+  .plan .price { font-family: var(--cond); font-weight: 700; font-size: 22px; text-align: right; }
+  .plan small { grid-column: 1 / -1; font-size: 13px; color: #cfcfcf; }
+  .plan.best { border-color: var(--yellow); }
+  .plan:focus-visible { outline: 3px solid var(--yellow); outline-offset: 2px; }
+  .pwfine { font-size: 13px; line-height: 1.5; color: #bdbdbd; margin: 0 0 12px; }
+  .pwmsg { font-size: 14px; color: #fff; margin: 0 0 12px; }
+  .pwmsg:empty { display: none; }
+  .pwmsg.bad { color: #ff8a80; }
+  @media (min-height: 640px) { .paywall { align-items: center; } }
   .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0 0 12px; }
   .tabs .opt { font-size: 15px; min-height: 40px; }
   .sel { width: 100%; min-height: 46px; border-radius: 10px; border: 2px solid #fff; background: #000; color: #fff; font: 700 17px var(--cond); padding: 0 10px; margin: 0 0 8px; }
@@ -273,6 +303,7 @@
       <button class="opt" id="acctBtn">Sign in</button>
     </div>
     <p class="acctnote" id="acctNote">Sign in with your username to post scores and climb the boards.</p>
+    <p class="freeday" id="freeDay" hidden aria-live="polite"><span id="freeDayText"></span><button class="link" id="freeDayPlans" hidden>See plans</button></p>
 
     <p class="label" id="routeLabel">Route</p>
     <div class="routes" role="group" aria-labelledby="routeLabel" id="routeList"></div>
@@ -342,12 +373,14 @@
   </section>
 
   <section class="screen" id="signin" hidden>
-    <p class="crash">Enter the leaderboard</p>
-    <p class="tutbody">Pick a username for the boards and enter the phone number you subscribe with. Only your username is ever shown to other players. Your number stays private.</p>
+    <p class="crash">Sign in to race</p>
+    <p class="sinote" id="siNote" hidden>Sign in free to start racing. No payment needed.</p>
+    <p class="tutbody">Signing in is free and needs no payment. Your first 24 hours of racing are on us. Pick a username for the boards and enter your phone number. Only your username is ever shown to other players. Your number stays private.</p>
     <label class="field"><span>Username</span><input id="siName" maxlength="24" autocomplete="nickname" autocapitalize="off" spellcheck="false" placeholder="e.g. GidiDriver"></label>
     <label class="field"><span>Phone number</span><input id="siPhone" type="tel" inputmode="tel" maxlength="16" autocomplete="tel" placeholder="0803 123 4567"></label>
+    <p class="consent">By signing in you confirm you are 18 or older and agree to the <button class="link" data-doc="terms">Terms of Service</button> and <button class="link" data-doc="privacy">Privacy Policy</button>.</p>
     <p class="err" id="siErr" aria-live="polite"></p>
-    <button class="btn primary" id="siGo">SIGN IN</button>
+    <button class="btn primary" id="siGo">SIGN IN FREE</button>
     <button class="btn ghost" id="siBack">BACK</button>
     <p class="how" style="margin-top:14px">Returning player? Use the same username and number as before.</p>
   </section>
@@ -436,6 +469,22 @@
     <button class="btn ghost" id="overGarageBtn">GARAGE</button>
     <p class="how" style="margin-top:16px">Fly Points are for ranking only. They have no cash value and cannot be exchanged for anything.</p>
   </section>
+
+  <div class="paywall" id="paywall" role="dialog" aria-modal="true" aria-labelledby="pwTitle" aria-describedby="pwBody" hidden>
+    <div class="pwcard">
+      <h2 id="pwTitle" tabindex="-1">Your free day is over</h2>
+      <p id="pwBody">Pick a plan to keep racing. Your scores, streak and garage stay with you.</p>
+      <div class="plans" id="pwPlans">
+        <a class="plan" data-kw="FLYGIDI DAY"><b>Daily</b><span class="price">₦100</span><small>Send FLYGIDI DAY to 7996</small></a>
+        <a class="plan best" data-kw="FLYGIDI WEEK"><b>Weekly</b><span class="price">₦500</span><small>Send FLYGIDI WEEK to 7996. Saves ₦200 on daily.</small></a>
+        <a class="plan" data-kw="FLYGIDI MONTH"><b>Monthly</b><span class="price">₦1,200</span><small>Send FLYGIDI MONTH to 7996. Saves ₦1,800 on daily.</small></a>
+      </div>
+      <p class="pwfine" id="pwFine">Tap a plan to open your messages with the keyword ready. Your network will ask you to confirm the price before any charge. Plans renew until you send STOP FLYGIDI to 7996.</p>
+      <p class="pwmsg" id="pwMsg" aria-live="polite"></p>
+      <button class="btn primary" id="pwCheck">I HAVE SUBSCRIBED</button>
+      <button class="btn ghost" id="pwClose">NOT NOW</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -1309,8 +1358,10 @@
   let unlockedBefore = [];
   function startGame() {
     if (!isUnlocked(route)) return;
-    const blocked = accessBlock();
-    if (blocked) { renderMenu(); show('start'); $('routeNote').textContent = blocked; toast('Plan needed'); return; }
+    // racing needs a free sign in; after the free day, the payment popup shows every time until there is a plan
+    if (!auth) { if (state === 'over') { state = 'menu'; reset(); } openSignin(true); return; }
+    const gate = accessGate();
+    if (gate) { if (state !== 'over') { renderMenu(); show('start'); } showPaywall(gate); return; }
     if (!store.get('flygidi_tutorial_done', false)) { openTutorial(true); return; }
     Sound.unlock(); Voice.prime();
     Voice.warm(['next_stop', 'missed_1', 'missed_2', 'missed_3'].concat(STOPS[route].map(n => 'stop_' + slug(n))));
@@ -1425,11 +1476,12 @@
   }
   function renderAccount() {
     $('acctBtn').textContent = auth ? 'Profile' : 'Sign in';
-    $('acctNote').textContent = auth && auth.profile ? 'Signed in as ' + auth.profile.name + (auth.profile.title ? ' · ' + auth.profile.title : '') + '. Your scores post to the boards.' : 'Sign in with your username to post scores and climb the boards.';
+    $('acctNote').textContent = auth && auth.profile ? 'Signed in as ' + auth.profile.name + (auth.profile.title ? ' · ' + auth.profile.title : '') + '. Your scores post to the boards.' : 'Sign in free to race and post your scores. No payment needed.';
+    if (typeof renderFreeDay === 'function') renderFreeDay();
   }
   $('acctBtn').onclick = () => { if (auth) openProfile(); else openSignin(); };
 
-  function openSignin() { $('siErr').textContent = ''; show('signin'); $('signin').scrollTop = 0; }
+  function openSignin(fromStart) { $('siErr').textContent = ''; $('siNote').hidden = !fromStart; show('signin'); $('signin').scrollTop = 0; }
   $('siBack').onclick = () => { renderMenu(); show('start'); };
   ['siName', 'siPhone'].forEach(id => $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('siGo').click(); } }));
   $('siGo').onclick = async () => {
@@ -1438,10 +1490,13 @@
     if (phone.replace(/\D/g, '').length < 10) { $('siErr').textContent = 'Enter your full phone number.'; return; }
     $('siGo').disabled = true; $('siGo').textContent = 'SIGNING IN...';
     const j = await api('signin', { name, phone });
-    $('siGo').disabled = false; $('siGo').textContent = 'SIGN IN';
+    $('siGo').disabled = false; $('siGo').textContent = 'SIGN IN FREE';
     if (!j.ok) { $('siErr').textContent = j.error || 'Could not sign in.'; return; }
     auth = { token: j.token, profile: j.profile }; store.set('flygidi_auth', auth);
+    if (j.profile.access && j.profile.access.active) auth.accessOkAt = Date.now();
     syncStreak(j.profile.streak); renderAccount(); renderMenu(); show('start'); toast('Welcome, ' + j.profile.name);
+    // a returning player whose free day already ran out sees the plans straight away
+    const gate = accessGate(); if (gate) showPaywall(gate);
   };
 
   // leaderboard
@@ -1528,7 +1583,11 @@
   function requestTicket() {
     runTicket = null; runOid = uuid(); runPlayedAt = Date.now();
     if (!auth) return;
-    runTicket = navigator.onLine === false ? Promise.resolve(null) : api('start', { route, level, vehicle }).then(j => (j.ok ? j.ticket : null));
+    runTicket = navigator.onLine === false ? Promise.resolve(null) : api('start', { route, level, vehicle }).then(j => {
+      // the server has the final word: if the free day ran out since the last check, stop and show the plans
+      if (!j.ok && j.paywall) { onPaywallHit(j.access); return null; }
+      return j.ok ? j.ticket : null;
+    });
   }
   const raceData = (endKind) => ({
     score: Math.floor(score), meters: run.meters, passed, pax: run.pax, near: run.near, stops: run.stopsServed, hops: run.hops,
@@ -1584,15 +1643,99 @@
     if (!auth) return Promise.resolve();
     return api('me').then(j => { if (j.ok) { if (j.profile.access && j.profile.access.active) auth.accessOkAt = Date.now(); setProfile(j.profile); } });
   }
-  function accessBlock() {
-    const a = auth && auth.profile && auth.profile.access;
-    if (!a || !a.billing) return null;
-    if (navigator.onLine === false) return Date.now() - (auth.accessOkAt || 0) < GRACE_MS ? null : 'Connect to the internet once so we can confirm your FlyGidi plan, then you can play offline again.';
-    if (a.active) return null;
-    return a.until || auth.accessOkAt ? 'Your FlyGidi plan has ended. Renew on 7996 to keep racing.' : 'You need an active FlyGidi plan to race. Subscribe on 7996 to start.';
+  // Signing in is free. Each player gets 24 hours of racing from their first sign in, then needs a plan.
+  // The server decides; until the updated server is live (it adds access.paywall), the free day is
+  // counted on this phone from the first time the player is seen here.
+  const TRIAL_MS = 24 * 3600000;
+  const PLAN_WORD = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' };
+  function localTrialEnd() {
+    const key = 'flygidi_trial_' + String((auth.profile && auth.profile.name) || '').toLowerCase();
+    let start = store.get(key, null);
+    if (!start) { start = Date.now(); store.set(key, start); }
+    return start + TRIAL_MS;
   }
+  function accessNow() {
+    if (!auth) return { kind: 'guest' };
+    const a = auth.profile && auth.profile.access;
+    if (!a || a.paywall === false) return { kind: 'open' };
+    const now = Date.now();
+    if (a.paywall === undefined) { const end = localTrialEnd(); return end > now ? { kind: 'trial', until: end } : { kind: 'expired', hadPlan: false }; }
+    const until = a.until ? Date.parse(a.until) : 0;
+    const paid = !!a.plan && a.plan !== 'trial';
+    if (a.active && until > now) return { kind: paid ? 'plan' : 'trial', plan: a.plan, until };
+    if (a.active && paid && navigator.onLine === false && now - (auth.accessOkAt || 0) < GRACE_MS) return { kind: 'plan', plan: a.plan, until };
+    // a paid plan may have renewed while the phone was offline, so ask for a connection rather than payment
+    if (paid && navigator.onLine === false) return { kind: 'offline', hadPlan: true };
+    return { kind: 'expired', hadPlan: paid };
+  }
+  function accessGate() { const s = accessNow(); return s.kind === 'expired' || s.kind === 'offline' ? s : null; }
+
+  // ---------- payment popup ----------
+  let pwOpener = null;
+  document.querySelectorAll('#pwPlans .plan').forEach(a => { a.href = 'sms:7996' + (IS_IOS ? '&' : '?') + 'body=' + encodeURIComponent(a.dataset.kw); });
+  function showPaywall(s) {
+    const offline = s && s.kind === 'offline', ended = s && s.hadPlan;
+    $('pwTitle').textContent = offline ? 'Connect to check your plan' : ended ? 'Your plan has ended' : 'Your free day is over';
+    $('pwBody').textContent = offline
+      ? 'Your plan needs a quick check online. Connect to the internet and tap I have subscribed, or pick a plan below.'
+      : ended ? 'Renew to keep racing. Your scores, streak and garage stay with you.'
+      : 'Your 24 free hours are up. Pick a plan to keep racing. Your scores, streak and garage stay with you.';
+    $('pwMsg').textContent = ''; $('pwMsg').className = 'pwmsg';
+    if ($('paywall').hidden) pwOpener = document.activeElement;
+    $('paywall').hidden = false;
+    setTimeout(() => $('pwTitle').focus(), 30);
+  }
+  function hidePaywall() { $('paywall').hidden = true; if (pwOpener && pwOpener.focus) pwOpener.focus(); pwOpener = null; }
+  function onPaywallHit(access) {
+    if (access && auth && auth.profile) { auth.profile.access = access; store.set('flygidi_auth', auth); }
+    if (state === 'play' || state === 'pause') { Sound.engineStop(); Voice.stop(); state = 'menu'; reset(); renderMenu(); show('start'); }
+    renderFreeDay(); showPaywall(accessGate() || { kind: 'expired' });
+  }
+  $('pwClose').onclick = hidePaywall;
+  $('pwCheck').onclick = async () => {
+    const msg = $('pwMsg'), btn = $('pwCheck');
+    if (navigator.onLine === false) { msg.className = 'pwmsg bad'; msg.textContent = 'No connection. Connect to the internet and try again.'; return; }
+    btn.disabled = true; btn.textContent = 'CHECKING...'; msg.className = 'pwmsg'; msg.textContent = '';
+    await refreshProfile();
+    btn.disabled = false; btn.textContent = 'I HAVE SUBSCRIBED';
+    if (!accessGate()) { hidePaywall(); renderFreeDay(); toast('Plan confirmed'); return; }
+    msg.className = 'pwmsg bad';
+    msg.textContent = 'We cannot see a plan on your number yet. It shows a few minutes after your confirmation SMS. Try again shortly.';
+  };
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('paywall').hidden) { e.preventDefault(); hidePaywall(); } });
+  $('freeDayPlans').onclick = () => showPaywall(accessGate() || { kind: 'expired' });
+
+  // free day countdown on the menu
+  function leftText(ms) {
+    const m = Math.max(1, Math.ceil(ms / 60000)), h = Math.floor(m / 60);
+    return h ? h + 'h ' + (m % 60) + 'm' : m + ' min';
+  }
+  const whenText = (t) => new Date(t).toLocaleString('en-NG', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+  let freeDayWas = null;
+  function renderFreeDay() {
+    const s = accessNow(), el = $('freeDay'), txt = $('freeDayText');
+    let head = '', rest = '';
+    if (s.kind === 'trial') { head = 'Free day: '; rest = leftText(s.until - Date.now()) + ' left'; }
+    else if (s.kind === 'plan') { head = (PLAN_WORD[s.plan] || 'FlyGidi') + ' plan '; rest = 'active until ' + whenText(s.until); }
+    else if (s.kind === 'expired') { head = s.hadPlan ? 'Plan ended. ' : 'Free day over. '; rest = 'Pick a plan to keep racing.'; }
+    else if (s.kind === 'offline') { head = 'Plan check needed. '; rest = 'Connect to the internet.'; }
+    else if (s.kind === 'guest') { head = 'Free day: '; rest = 'sign in free to get 24 hours of racing.'; }
+    el.hidden = !head;
+    el.classList.toggle('over', s.kind === 'expired' || s.kind === 'offline');
+    txt.innerHTML = '<b></b><span></span>'; txt.querySelector('b').textContent = head; txt.querySelector('span').textContent = rest;
+    $('freeDayPlans').hidden = !(s.kind === 'expired' || s.kind === 'offline');
+    // the moment the free day runs out on the menu, the plans pop up
+    if (freeDayWas === 'trial' && s.kind === 'expired' && state === 'menu' && !$('start').hidden) showPaywall(s);
+    freeDayWas = s.kind;
+  }
+  setInterval(() => { if (state !== 'play') renderFreeDay(); }, 30000);
+
   window.addEventListener('online', () => { refreshProfile().then(flushQueue); });
-  if (auth) refreshProfile().then(flushQueue);
+  if (auth) refreshProfile().then(() => {
+    flushQueue();
+    // every visit after the free day opens on the plans
+    const gate = accessGate(); if (gate && state === 'menu' && !$('start').hidden) showPaywall(gate);
+  });
   renderAccount();
 
   // ---------- players online right now ----------
@@ -1709,10 +1852,10 @@
   // ---------- policies ----------
   const CONTACT = '<p>Venix Partners Limited, 10th Floor, Standard Chartered Building, 142 Ahmadu Bello Way, Victoria Island, Lagos.<br>Email: hello@venixpartners.com<br>Phone: +234 802 593 4298<br>SMS: send HELP FLYGIDI to 7996</p>';
   const DOCS = {
-    terms: '<h2>Terms of Service</h2><p class="updated">Last updated 25 September 2026</p>' +
+    terms: '<h2>Terms of Service</h2><p class="updated">Last updated 2 November 2026</p>' +
       '<h3>1. About FlyGidi</h3><p>FlyGidi Games is a racing game provided by Venix Partners Limited, a value added service provider licensed by the Nigerian Communications Commission (licence VAS/SCN/019/23). The service runs on shortcode 7996. By subscribing or playing, you agree to these terms.</p>' +
       '<h3>2. Who can subscribe</h3><p>FlyGidi is for people aged 18 and above. By subscribing you confirm that you are at least 18 and that you own or are allowed to use the phone number you subscribe with.</p>' +
-      '<h3>3. Subscription and charges</h3><ul><li>New subscribers get one free day of access, once per phone number, with no automatic charge.</li><li>Paid plans: Daily at N100, Weekly at N500 and Monthly at N1,200, deducted from your airtime.</li><li>No charge is made until you confirm the plan, price and renewal period in a consent request from your network.</li><li>Paid plans renew automatically at the end of each period until you cancel. Weekly and monthly subscribers get a reminder before each renewal.</li><li>If your airtime balance is too low at renewal, access pauses until a renewal succeeds.</li></ul>' +
+      '<h3>3. Subscription and charges</h3><ul><li>Signing in is free and needs no payment details. Every new player gets one free day of racing, 24 hours from their first sign in, once per phone number, with no charge.</li><li>When the free day ends, a paid plan is needed to keep racing. The game shows the plans each time you try to race until you subscribe.</li><li>Paid plans: Daily at N100, Weekly at N500 and Monthly at N1,200, deducted from your airtime.</li><li>No charge is made until you confirm the plan, price and renewal period in a consent request from your network.</li><li>Paid plans renew automatically at the end of each period until you cancel. Weekly and monthly subscribers get a reminder before each renewal.</li><li>If your airtime balance is too low at renewal, access pauses until a renewal succeeds.</li></ul>' +
       '<h3>4. Cancelling</h3><p>Send STOP FLYGIDI or STOP to 7996 at any time. You will receive a confirmation, no further charges will be made, and you can keep playing until the end of the period you have already paid for. Charges for a period that has already started are not refunded, except where the law requires it or where you were charged in error.</p>' +
       '<h3>5. Fly Points and leaderboards</h3><p>Fly Points measure how well you drive and are used only to rank players. They have no monetary value and cannot be bought, sold, redeemed, exchanged or transferred for cash, airtime, data, goods or any other reward. FlyGidi offers no prizes, draws or winnings of any kind. Leaderboards are for recognition only.</p>' +
       '<h3>6. Fair play</h3><p>You agree not to cheat, tamper with the game, use automated tools or share access in a way that affects other players. We check scores and may remove any score, reset a leaderboard entry or suspend access where we find cheating or misuse.</p>' +
@@ -1734,9 +1877,14 @@
       '<h3>10. Age limit</h3><p>FlyGidi is not intended for anyone under 18, and we do not knowingly collect data from them.</p>' +
       '<h3>11. Contact us</h3>' + CONTACT
   };
-  function openDoc(key) { $('docBody').innerHTML = DOCS[key]; show('doc'); $('doc').scrollTop = 0; }
+  // the policies open from the menu and from the sign in screen, and go back to wherever they came from
+  let docReturn = 'start';
+  function openDoc(key) {
+    docReturn = $('signin').hidden ? 'start' : 'signin';
+    $('docBody').innerHTML = DOCS[key]; show('doc'); $('doc').scrollTop = 0;
+  }
   document.querySelectorAll('[data-doc]').forEach(b => b.addEventListener('click', () => openDoc(b.dataset.doc)));
-  $('docClose').onclick = () => { show('start'); };
+  $('docClose').onclick = () => { show(docReturn); };
 
   const CRASH_LINES = {
     car: ['Oga, face your front o.', 'Small space no be road.'],

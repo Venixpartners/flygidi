@@ -95,13 +95,32 @@ async function settleChampions() {
   }
 }
 
-// Access to play. Until billing goes live at aggregator integration, every signed in player has access.
-// Set FLYGIDI_BILLING_LIVE=true on this function to require an active 7996 subscription.
-const BILLING_LIVE = Deno.env.get("FLYGIDI_BILLING_LIVE") === "true";
+// Access to play. Signing in is free and needs no payment. Every player gets one free day of racing,
+// starting the first time they sign in after this check went live, once per player. After that, starting
+// a race needs an active 7996 plan in flygidi.subscriptions.
+// Set FLYGIDI_PAYWALL=off on this function to let every signed in player race (testing only).
+const PAYWALL = Deno.env.get("FLYGIDI_PAYWALL") !== "off";
+const TRIAL_HOURS = 24;
+async function ensureTrial(playerId: string) {
+  await sql`
+    insert into flygidi.subscriptions (player_id, plan, status, price_kobo, starts_at, ends_at)
+    select ${playerId}, 'trial', 'active', 0, now(), now() + make_interval(hours => ${TRIAL_HOURS})
+    where not exists (select 1 from flygidi.subscriptions where player_id = ${playerId} and plan = 'trial')
+    on conflict do nothing`;
+}
 async function accessOf(p: any) {
-  if (!BILLING_LIVE) return { active: true, billing: false, until: null };
-  const s = await sql`select plan, ends_at from flygidi.subscriptions where player_id = ${p.id} and status = 'active' and ends_at > now() order by ends_at desc limit 1`;
-  return { active: s.length > 0, billing: true, plan: s[0]?.plan ?? null, until: s[0]?.ends_at ?? null };
+  if (!PAYWALL) return { active: true, billing: false, paywall: false, plan: null, until: null, trialEnds: null };
+  await ensureTrial(p.id);
+  // a paid plan wins over the free day when both are running
+  const s = await sql`
+    select plan, ends_at from flygidi.subscriptions
+    where player_id = ${p.id} and status = 'active' and starts_at <= now() and ends_at > now()
+    order by (plan = 'trial'), ends_at desc limit 1`;
+  const t = await sql`select ends_at from flygidi.subscriptions where player_id = ${p.id} and plan = 'trial' order by starts_at limit 1`;
+  return {
+    active: s.length > 0, billing: true, paywall: true,
+    plan: s[0]?.plan ?? null, until: s[0]?.ends_at ?? null, trialEnds: t[0]?.ends_at ?? null,
+  };
 }
 
 async function profileOf(p: any) {
@@ -172,6 +191,8 @@ async function signIn(body: any) {
 
 async function startRun(p: any, body: any) {
   if (!LEVELS[body.level] || ROUTES[body.route] === undefined || !VEHICLES[body.vehicle]) return fail("Unknown route, level or vehicle.");
+  const access = await accessOf(p);
+  if (!access.active) return json({ ok: false, paywall: true, access, error: "Your free day is over. Subscribe on 7996 to keep racing." }, 402);
   // close any ticket left open by a race that never posted
   await sql`update flygidi.run_tickets set used_at = now() where player_id = ${p.id} and used_at is null`;
   const t = await sql`insert into flygidi.run_tickets (player_id, route, level, vehicle) values (${p.id}, ${body.route}, ${body.level}, ${body.vehicle}) returning id`;
